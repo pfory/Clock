@@ -1,3 +1,3 @@
 # Clock
 
-4 digit display an ESP8266
+4 digit display and ESP8266 for time sync via internet
