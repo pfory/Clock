@@ -5,10 +5,8 @@ Timer<> default_timer; // save as above
 
 #include "TM1637.h"
 
-int8_t TimeDisp[] = {0x00,0x00,0x00,0x00};
-unsigned char ClockPoint = 1;
-unsigned char upd;
-unsigned char halfsecond = 0;
+int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
+unsigned char ClockPoint                    = 1;
 
 #define CLK D2//pins definitions for TM1637 and can be changed to other ports
 #define DIO D3
@@ -32,8 +30,7 @@ TM1637 tm1637(CLK,DIO);
 #include <TimeLib.h>
 #include <Timezone.h>
 WiFiUDP EthernetUdp;
-//const int timeZone = 2;     // Central European Time
-static const char     ntpServerName[]       = "tik.cesnet.cz";
+IPAddress ntpServerIP                       = IPAddress(195, 113, 144, 201);        //tik.cesnet.cz
 //Central European Time (Frankfurt, Paris)
 TimeChangeRule        CEST                  = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
 TimeChangeRule        CET                   = {"CET", Last, Sun, Oct, 3, 60};       //Central European Standard Time
@@ -100,53 +97,18 @@ void setupWifi() {
   DEBUG_PRINTLN("-------WIFI Setup---------");
   WiFi.printDiag(Serial);
     
-  // bool validConf = readConfig();
-  // if (!validConf) {
-    // DEBUG_PRINTLN(F("ERROR config corrupted"));
-  // }
-  
   //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   //reset settings - for testing
   //wifiManager.resetSettings();
   
-  //wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
-  // IPAddress _ip,_gw,_sn;
-  // _ip.fromString(static_ip);
-  // _gw.fromString(static_gw);
-  // _sn.fromString(static_sn);
-
-  // wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
-  
-  // DEBUG_PRINTLN(_ip);
-  // DEBUG_PRINTLN(_gw);
-  // DEBUG_PRINTLN(_sn);
-
-  //if (WiFi.SSID()!="") wifiManager.setConfigPortalTimeout(60); //If no access point name has been previously entered disable timeout.
-
-  
   //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
-  
-    //DEBUG_PRINTLN("Double reset detected. Config mode.");
-
-  //sets timeout until configuration portal gets turned off
-  //useful to make it all retry or go to sleep
-  //in seconds
   
   wifiManager.setTimeout(30);
   wifiManager.setConnectTimeout(10); 
   wifiManager.setConfigPortalTimeout(60);
-  //wifiManager.setBreakAfterConfig(true);
   
-  //set config save notify callback
-  //wifiManager.setSaveConfigCallback(saveConfigCallback);
-  
-  //fetches ssid and pass and tries to connect
-  //if it does not connect it starts an access point with the specified name
-  //here  "AutoConnectAP"
-  //and goes into a blocking loop awaiting configuration
   if (!wifiManager.autoConnect("Clock", "password")) { 
     DEBUG_PRINTLN("failed to connect and hit timeout");
     delay(3000);
@@ -155,16 +117,40 @@ void setupWifi() {
     delay(5000);
   } 
   
-  
-  // if (shouldSaveConfig) {
-    // saveConfig();
-  // }
-  
   //if you get here you have connected to the WiFi
   DEBUG_PRINTLN("CONNECTED");
   DEBUG_PRINT("Local ip : ");
   DEBUG_PRINTLN(WiFi.localIP());
   DEBUG_PRINTLN(WiFi.subnetMask());
+  
+  TimeDisp[0] = 1;
+  TimeDisp[1] = 9;
+  TimeDisp[2] = 2;
+  tm1637.display(0x03,0x00);
+
+  delay(2000);
+
+  TimeDisp[0] = 1;
+  TimeDisp[1] = 6;
+  TimeDisp[2] = 8;
+  tm1637.display(0x03,0x00);
+
+  delay(2000);
+
+  TimeDisp[0] = 1;
+  tm1637.display(0x01,0x00);
+  tm1637.display(0x02,0x00);
+  tm1637.display(0x03,0x00);
+
+  delay(2000);
+  
+  TimeDisp[0] = 1;
+  TimeDisp[2] = 1;
+  TimeDisp[3] = 9;
+  tm1637.display(0x03,0x00);
+
+  delay(2000);
+ 
 }
 
 
@@ -174,15 +160,10 @@ const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
 time_t getNtpTime() {
-  //IPAddress ntpServerIP; // NTP server's ip address
-  IPAddress ntpServerIP = IPAddress(195, 113, 144, 201);
-
   while (EthernetUdp.parsePacket() > 0) ; // discard any previously received packets
   DEBUG_PRINTLN("Transmit NTP Request");
   // get a random server from the pool
   //WiFi.hostByName(ntpServerName, ntpServerIP);
-  DEBUG_PRINT(ntpServerName);
-  DEBUG_PRINT(": ");
   DEBUG_PRINTLN(ntpServerIP);
   sendNTPpacket(ntpServerIP);
   uint32_t beginWait = millis();
