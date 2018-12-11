@@ -12,6 +12,12 @@ unsigned char ClockPoint                    = 1;
 #define DIO D3
 TM1637 tm1637(CLK,DIO);
 
+#define ota
+#ifdef ota
+#include <ArduinoOTA.h>
+#define HOSTNAMEOTA   "clock"
+#endif
+
 #define verbose
 #ifdef verbose
   #define DEBUG_PRINT(x)         Serial.print (x)
@@ -45,16 +51,22 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   //if you used auto generated SSID, print it
   DEBUG_PRINTLN(myWiFiManager->getConfigPortalSSID());
   //entered config mode, make led toggle faster
+  tm1637.display(0x00,0x6D);
+  tm1637.display(0x01,0x4F);
+  tm1637.display(0x02,0x78);
+  tm1637.display(0x03,0x00);
 }
 
 void setup()
 {
   SERIAL_BEGIN;
   DEBUG_PRINTLN("CLOCK");
-  tm1637.set();
   tm1637.init();
+  tm1637.set(BRIGHT_TYPICAL);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
 
   setupWifi();
+  
+  setupOTA();
 
   DEBUG_PRINTLN("Setup TIME");
   EthernetUdp.begin(localPort);
@@ -73,6 +85,9 @@ void setup()
 void loop()
 {
   timer.tick(); // tick the timer
+#ifdef ota
+  ArduinoOTA.handle();
+#endif
 }
 
 bool TimingISR(void *) {
@@ -123,30 +138,32 @@ void setupWifi() {
   DEBUG_PRINTLN(WiFi.localIP());
   DEBUG_PRINTLN(WiFi.subnetMask());
   
-  TimeDisp[0] = 1;
-  TimeDisp[1] = 9;
-  TimeDisp[2] = 2;
+  IPAddress ip = WiFi.localIP();
+  
+  TimeDisp[0] = ip[0];
+  TimeDisp[1] = ip[0]+1;
+  TimeDisp[2] = ip[0]+2;
   tm1637.display(0x03,0x00);
 
   delay(2000);
 
-  TimeDisp[0] = 1;
-  TimeDisp[1] = 6;
-  TimeDisp[2] = 8;
+  TimeDisp[0] = ip[1];
+  TimeDisp[1] = ip[1]+1;
+  TimeDisp[2] = ip[1]+2;
   tm1637.display(0x03,0x00);
 
   delay(2000);
 
-  TimeDisp[0] = 1;
-  tm1637.display(0x01,0x00);
-  tm1637.display(0x02,0x00);
+  TimeDisp[0] = ip[2];
+  TimeDisp[1] = ip[2]+1;
+  TimeDisp[2] = ip[2]+2;
   tm1637.display(0x03,0x00);
 
   delay(2000);
   
-  TimeDisp[0] = 1;
-  TimeDisp[2] = 1;
-  TimeDisp[3] = 9;
+  TimeDisp[0] = ip[3];
+  TimeDisp[1] = ip[3]+1;
+  TimeDisp[2] = ip[3]+2;
   tm1637.display(0x03,0x00);
 
   delay(2000);
@@ -244,4 +261,49 @@ void printSystemTime(){
   DEBUG_PRINT(hour());
   printDigits(minute());
   printDigits(second());
+}
+
+void setupOTA() {
+#ifdef ota
+  //OTA
+  // Port defaults to 8266
+  // ArduinoOTA.setPort(8266);
+
+  // Hostname defaults to esp8266-[ChipID]
+  ArduinoOTA.setHostname(HOSTNAMEOTA);
+
+  // No authentication by default
+  // ArduinoOTA.setPassword("admin");
+
+  // Password can be set with it's md5 value as well
+  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+  ArduinoOTA.onStart([]() {
+    // String type;
+    // if (ArduinoOTA.getCommand() == U_FLASH)
+      // type = "sketch";
+    // else // U_SPIFFS
+      // type = "filesystem";
+
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    //DEBUG_PRINTLN("Start updating " + type);
+    DEBUG_PRINTLN("Start updating ");
+  });
+  ArduinoOTA.onEnd([]() {
+   DEBUG_PRINTLN("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    DEBUG_PRINTF("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    DEBUG_PRINTF("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) DEBUG_PRINTLN("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) DEBUG_PRINTLN("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) DEBUG_PRINTLN("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) DEBUG_PRINTLN("Receive Failed");
+    else if (error == OTA_END_ERROR) DEBUG_PRINTLN("End Failed");
+  });
+  ArduinoOTA.begin();
+#endif
 }
