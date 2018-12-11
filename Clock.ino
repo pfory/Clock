@@ -123,26 +123,32 @@ void setupWifi() {
   DEBUG_PRINTLN(WiFi.localIP());
   DEBUG_PRINTLN(WiFi.subnetMask());
   
-  TimeDisp[0] = 1;
-  TimeDisp[1] = 9;
-  TimeDisp[2] = 2;
+  tm1637.display(0x00,0x01);
+  tm1637.display(0x01,0x09);
+  tm1637.display(0x02,0x02);
   tm1637.display(0x03,0x00);
+  // TimeDisp[0] = 1;
+  // TimeDisp[1] = 9;
+  // TimeDisp[2] = 2;
+  // tm1637.display(TimeDisp);
+  //tm1637.display(0x03,0x00);
 
   delay(2000);
 
   TimeDisp[0] = 1;
   TimeDisp[1] = 6;
   TimeDisp[2] = 8;
-  tm1637.display(0x03,0x00);
+  tm1637.display(TimeDisp);
+  //tm1637.display(0x03,0x00);
 
   delay(2000);
 
-  TimeDisp[0] = 1;
-  tm1637.display(0x01,0x00);
-  tm1637.display(0x02,0x00);
-  tm1637.display(0x03,0x00);
+  // TimeDisp[0] = 1;
+  // tm1637.display(0x01,0x00);
+  // tm1637.display(0x02,0x00);
+  // tm1637.display(0x03,0x00);
 
-  delay(2000);
+  // delay(2000);
   
   TimeDisp[0] = 1;
   TimeDisp[2] = 1;
