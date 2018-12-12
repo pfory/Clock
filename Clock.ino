@@ -62,7 +62,7 @@ void setup()
   SERIAL_BEGIN;
   DEBUG_PRINTLN("CLOCK");
   tm1637.init();
-  tm1637.set(BRIGHT_TYPICAL);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  tm1637.set(1);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
 
   setupWifi();
   
@@ -140,35 +140,19 @@ void setupWifi() {
   
   IPAddress ip = WiFi.localIP();
   
-  TimeDisp[0] = ip[0];
-  TimeDisp[1] = ip[0]+1;
-  TimeDisp[2] = ip[0]+2;
-  tm1637.display(0x03,0x00);
-
-  delay(2000);
-
-  TimeDisp[0] = ip[1];
-  TimeDisp[1] = ip[1]+1;
-  TimeDisp[2] = ip[1]+2;
-  tm1637.display(TimeDisp);
-  //tm1637.display(0x03,0x00);
-
-  delay(2000);
-
-  TimeDisp[0] = ip[2];
-  TimeDisp[1] = ip[2]+1;
-  TimeDisp[2] = ip[2]+2;
-  tm1637.display(0x03,0x00);
-
+  // Serial.println();
+  // tm1637.display(0x00,0x6d);
+  // tm1637.display(0x01,0x30);
+  // tm1637.display(0x02,0x70);
+  // tm1637.display(0x03,0x7f);
+  
   // delay(2000);
   
-  TimeDisp[0] = ip[3];
-  TimeDisp[1] = ip[3]+1;
-  TimeDisp[2] = ip[3]+2;
-  tm1637.display(0x03,0x00);
+  for (byte i=0; i<4; i++) {
+    dispIP(ip, i);
+    delay(1000);
+  }
 
-  delay(2000);
- 
 }
 
 
@@ -307,4 +291,24 @@ void setupOTA() {
   });
   ArduinoOTA.begin();
 #endif
+}
+
+
+void dispIP(IPAddress ip, byte index) {
+  tm1637.clearDisplay();
+  TimeDisp[0] = 0x7f;
+  TimeDisp[1] = 0x7f;
+  TimeDisp[2] = 0x7f;
+  TimeDisp[3] = 0x7f;
+  if (String(ip[index]).length()==1) {
+    TimeDisp[3] = String(ip[index]).substring(0,1).toInt();
+  } else if (String(ip[index]).length()==2) {
+    TimeDisp[2] = String(ip[index]).substring(0,1).toInt();
+    TimeDisp[3] = String(ip[index]).substring(1,2).toInt();
+  } else {
+    TimeDisp[1] = String(ip[index]).substring(0,1).toInt();
+    TimeDisp[2] = String(ip[index]).substring(1,2).toInt();
+    TimeDisp[3] = String(ip[index]).substring(2,3).toInt();
+  }
+  tm1637.display(TimeDisp);
 }
