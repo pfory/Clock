@@ -3,18 +3,40 @@
 auto timer = timer_create_default(); // create a timer with default settings
 Timer<> default_timer; // save as above
 
-#include "TM1637.h"
+#include "TM1637Display.h"
 #include <PubSubClient.h>
 
 const char* mqtt_server = "192.168.1.56";       // Enter the IP-Address of your Raspberry Pi
 const int   mqtt_port = 1883;                   // port
 
+const uint8_t SEG_DONE[] = {
+	SEG_B | SEG_C | SEG_D | SEG_E | SEG_G,           // d
+	SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
+	SEG_C | SEG_E | SEG_G,                           // n
+	SEG_A | SEG_D | SEG_E | SEG_F | SEG_G            // E
+	};
+
+const uint8_t SEG_DEG[] = {
+	SEG_A | SEG_B | SEG_F | SEG_G           // 
+	};
+
+#define CLOCK1 //v obyvaku, horni zakomentovat
+
+#ifdef CLOCK1
+#define BRIGHTNESS      7
+#else
+#define BRIGHTNESS      2
+#endif
 
 #define mqtt_auth 1                                         // Set this to 0 to disable authentication
 #define mqtt_user               "datel"                     // Username for mqtt, not required if auth is disabled
 #define mqtt_password           "hanka12"                   // Password for mqtt, not required if auth is disabled
 
+#ifdef CLOCK1
 #define mqtt_topic              "/home/Clock1"           // here you have to set the topic for mqtt
+#else
+#define mqtt_topic              "/home/Clock2"           // here you have to set the topic for mqtt
+#endif
 #define mqtt_topic_weather      "/home/Meteo/Temperature"
 
 int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
@@ -23,7 +45,7 @@ unsigned char ClockPoint                    = 1;
 #define CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
 #define DIO D3
  
-TM1637 tm1637(CLK,DIO);
+TM1637Display tm1637(CLK,DIO);
 
 #define ota
 #ifdef ota
@@ -67,10 +89,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   //if you used auto generated SSID, print it
   DEBUG_PRINTLN(myWiFiManager->getConfigPortalSSID());
   //entered config mode, make led toggle faster
-  tm1637.display(0x00,0x6D);
-  tm1637.display(0x01,0x4F);
-  tm1637.display(0x02,0x78);
-  tm1637.display(0x03,0x00);
+  tm1637.showNumberDec(0000, false, 4, 3);
 }
 
 //MQTT callback
@@ -89,37 +108,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, mqtt_topic_weather)==0) {
     DEBUG_PRINT("Temperature from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
-    int v = abs(round(val.toFloat()));
-    char cstr[5];
-    itoa(v, cstr, 10);
-    // DEBUG_PRINTLN(cstr);
-    String temp = cstr;
-
-    DEBUG_PRINTLN(temp);
+    int v = round(val.toFloat());
     
-    tm1637.clearDisplay();
-    TimeDisp[0] = 0x7f;
-    TimeDisp[1] = 0x7f;
-    TimeDisp[2] = 0x7f;
-    TimeDisp[3] = 0x7f; //1100011
-    tm1637.point(POINT_OFF);
-    
-    if (temp.length()==1) {
-      TimeDisp[2] = temp.substring(0,1).toInt();
-    } else if (temp.length()==2) {
-      TimeDisp[2] = temp.substring(0,1).toInt();
-      TimeDisp[1] = temp.substring(1,2).toInt();
+    tm1637.clear();
+    if (v < 0) {
+      tm1637.showNumberDec(v, false, 2, 0);
     } else {
-      TimeDisp[2] = temp.substring(0,1).toInt();
-      TimeDisp[1] = temp.substring(1,2).toInt();
-      TimeDisp[0] = temp.substring(2,3).toInt();
-    }  
-
-    tm1637.display(TimeDisp);
-    tm1637.display(3,18); // put degree
-
+      tm1637.showNumberDec(v, false, 2, 1);
+    }
+    tm1637.setSegments(SEG_DEG, 1, 3);
+    
     delay(2000);
   } else if (strcmp(topic, "/home/Clock1/restart")==0) {
+    DEBUG_PRINT("RESTART");
+    ESP.restart();
+  } else if (strcmp(topic, "/home/Clock2/restart")==0) {
     DEBUG_PRINT("RESTART");
     ESP.restart();
   }
@@ -130,13 +133,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void setup() {
   SERIAL_BEGIN;
   DEBUG_PRINTLN("CLOCK");
-  tm1637.init();
-  tm1637.set(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
-
-  tm1637.display(0x00,8);
-  tm1637.display(0x01,8);
-  tm1637.display(0x02,8);
-  tm1637.display(0x03,8);
+  tm1637.setBrightness(BRIGHTNESS);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  tm1637.showNumberDecEx(8888, 0b11100000, true, 4, 0);
 
   setupWifi();
   
@@ -152,7 +150,10 @@ void setup() {
   
   printSystemTime();
 
-  timer.every(1000, TimingISR);
+  tm1637.setSegments(SEG_DONE);
+  delay(1000);
+  
+  timer.every(500, TimingISR);
 }
 
 
@@ -169,22 +170,20 @@ void loop()
 }
 
 bool TimingISR(void *) {
-  DEBUG_PRINTLN();
   printSystemTime();
+  
+  int t = hour() * 100 + minute();
+  
+  //tm1637.clear();
+  DEBUG_PRINTLN(ClockPoint);
+  if(ClockPoint) {
+    tm1637.showNumberDecEx(t, 0, true, 4, 0);
+  } else {
+    tm1637.showNumberDecEx(t, 0b01000000, true, 4, 0);
+  }
   ClockPoint = (~ClockPoint) & 0x01;
-  TimeUpdate();
-  tm1637.display(TimeDisp);
+  return true;
 }
-
-void TimeUpdate(void) {
-  if(ClockPoint)tm1637.point(POINT_ON);
-  else tm1637.point(POINT_OFF);
-  TimeDisp[0] = hour() / 10;
-  TimeDisp[1] = hour() % 10;
-  TimeDisp[2] = minute() / 10;
-  TimeDisp[3] = minute() % 10;
-}
-
 
 void setupWifi() {
   DEBUG_PRINTLN("-------WIFI Setup---------");
@@ -202,7 +201,7 @@ void setupWifi() {
   wifiManager.setConnectTimeout(30); 
   //wifiManager.setConfigPortalTimeout(60);
   
-  if (!wifiManager.autoConnect("Clock", "password")) { 
+  if (!wifiManager.autoConnect(HOSTNAMEOTA, "password")) { 
     DEBUG_PRINTLN("failed to connect and hit timeout");
     delay(3000);
     //reset and try again, or maybe put it to deep sleep
@@ -367,29 +366,19 @@ void setupOTA() {
 
 
 void dispIP(IPAddress ip, byte index) {
-  tm1637.clearDisplay();
-  TimeDisp[0] = 0x7f;
-  TimeDisp[1] = 0x7f;
-  TimeDisp[2] = 0x7f;
-  TimeDisp[3] = 0x7f;
-  if (String(ip[index]).length()==1) {
-    TimeDisp[3] = String(ip[index]).substring(0,1).toInt();
-  } else if (String(ip[index]).length()==2) {
-    TimeDisp[2] = String(ip[index]).substring(0,1).toInt();
-    TimeDisp[3] = String(ip[index]).substring(1,2).toInt();
-  } else {
-    TimeDisp[1] = String(ip[index]).substring(0,1).toInt();
-    TimeDisp[2] = String(ip[index]).substring(1,2).toInt();
-    TimeDisp[3] = String(ip[index]).substring(2,3).toInt();
-  }
-  tm1637.display(TimeDisp);
+  tm1637.clear();
+  tm1637.showNumberDec(ip[index], false, 3, 0);
 }
 
 void reconnect() {
   while (!client.connected()) {
     DEBUG_PRINT("\nAttempting MQTT connection...");
     if (mqtt_auth == 1) {
+#ifdef CLOCK1
       if (client.connect("Clock1", mqtt_user, mqtt_password)) {
+#else
+      if (client.connect("Clock2", mqtt_user, mqtt_password)) {
+#endif
         DEBUG_PRINTLN("connected");
         client.subscribe(mqtt_topic);
         client.subscribe(mqtt_topic_weather);
