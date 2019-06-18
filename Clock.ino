@@ -20,11 +20,17 @@ const uint8_t SEG_DEG[] = {
 	SEG_A | SEG_B | SEG_F | SEG_G           // 
 	};
 
-#define CLOCK1 //v obyvaku, horni zakomentovat
+//#define CLOCK1 //v obyvaku, horni zakomentovat
+//#define CLOCK2 //nahore v loznici
+#define CLOCK3 //ESP8266-01
 
 #ifdef CLOCK1
 #define BRIGHTNESS      7
-#else
+#endif
+#ifdef CLOCK3
+#define BRIGHTNESS      7
+#endif
+#ifdef CLOCK2
 #define BRIGHTNESS      2
 #endif
 
@@ -34,17 +40,27 @@ const uint8_t SEG_DEG[] = {
 
 #ifdef CLOCK1
 #define mqtt_topic              "/home/Clock1"           // here you have to set the topic for mqtt
-#else
+#endif
+#ifdef CLOCK3
+#define mqtt_topic              "/home/Clock3"           // here you have to set the topic for mqtt
+#endif
+#ifdef CLOCK2
 #define mqtt_topic              "/home/Clock2"           // here you have to set the topic for mqtt
 #endif
+
 #define mqtt_topic_weather      "/home/Meteo/Temperature"
 
 int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
 unsigned char ClockPoint                    = 1;
 
+#ifdef CLOCK3
+#define CLK 2//pins//pins definitions for TM1637 and can be changed to other ports
+#define DIO 0
+#else
 #define CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
 #define DIO D3
- 
+#endif
+
 TM1637Display tm1637(CLK,DIO);
 
 #define ota
@@ -125,6 +141,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
   } else if (strcmp(topic, "/home/Clock2/restart")==0) {
     DEBUG_PRINT("RESTART");
     ESP.restart();
+  } else if (strcmp(topic, "/home/Clock3/restart")==0) {
+    DEBUG_PRINT("RESTART");
+    ESP.restart();
   }
 }
 
@@ -175,7 +194,7 @@ bool TimingISR(void *) {
   int t = hour() * 100 + minute();
   
   //tm1637.clear();
-  DEBUG_PRINTLN(ClockPoint);
+  //DEBUG_PRINTLN(ClockPoint);
   if(ClockPoint) {
     tm1637.showNumberDecEx(t, 0, true, 4, 0);
   } else {
@@ -317,6 +336,7 @@ void printSystemTime(){
   DEBUG_PRINT(hour());
   printDigits(minute());
   printDigits(second());
+  DEBUG_PRINTLN();
 }
 
 void setupOTA() {
@@ -376,7 +396,11 @@ void reconnect() {
     if (mqtt_auth == 1) {
 #ifdef CLOCK1
       if (client.connect("Clock1", mqtt_user, mqtt_password)) {
-#else
+#endif
+#ifdef CLOCK3
+      if (client.connect("Clock3", mqtt_user, mqtt_password)) {
+#endif
+#ifdef CLOCK2
       if (client.connect("Clock2", mqtt_user, mqtt_password)) {
 #endif
         DEBUG_PRINTLN("connected");
