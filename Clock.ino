@@ -20,8 +20,8 @@ const uint8_t SEG_DEG[] = {
 	SEG_A | SEG_B | SEG_F | SEG_G           // 
 	};
 
-//#define CLOCK1 //v obyvaku, horni zakomentovat
-#define CLOCK2 //nahore v loznici
+#define CLOCK1 //v obyvaku, horni
+//#define CLOCK2 //nahore v loznici
 //#define CLOCK1 //ESP8266-01
 
 #ifdef CLOCK1
@@ -126,16 +126,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
     DEBUG_PRINTLN(val.toFloat());
     int v = round(val.toFloat());
     
-    tm1637.clear();
-    if (v>-10) {
-      tm1637.showNumberDec(v, false, 2, 1);
-    } else {
-      tm1637.showNumberDec(v, false, 2, 0);
-    } 
+    showTemperature(v);
+    // showTemperature(-12);
+    // showTemperature(-9);
+    // showTemperature(-1);
+    // showTemperature(0);
+    // showTemperature(5);
+    // showTemperature(10);
+    // showTemperature(25);
     
-    tm1637.setSegments(SEG_DEG, 1, 3);
-    
-    delay(2000);
+  } else if (strcmp(topic, "/home/Clock1/brightness")==0) {
+    tm1637.setBrightness(round((int)val.toFloat()));
+  } else if (strcmp(topic, "/home/Clock2/brightness")==0) {
+    tm1637.setBrightness(round((int)val.toFloat()));
+  } else if (strcmp(topic, "/home/Clock3/brightness")==0) {
+    tm1637.setBrightness(round((int)val.toFloat()));
   } else if (strcmp(topic, "/home/Clock1/restart")==0) {
     DEBUG_PRINT("RESTART");
     ESP.restart();
@@ -397,12 +402,15 @@ void reconnect() {
     if (mqtt_auth == 1) {
 #ifdef CLOCK1
       if (client.connect("Clock1", mqtt_user, mqtt_password)) {
-#endif
-#ifdef CLOCK3
-      if (client.connect("Clock3", mqtt_user, mqtt_password)) {
+        client.subscribe("/home/Clock1/#");
 #endif
 #ifdef CLOCK2
       if (client.connect("Clock2", mqtt_user, mqtt_password)) {
+        client.subscribe("/home/Clock2/#");
+#endif
+#ifdef CLOCK3
+      if (client.connect("Clock3", mqtt_user, mqtt_password)) {
+        client.subscribe("/home/Clock3/#");
 #endif
         DEBUG_PRINTLN("connected");
         client.subscribe(mqtt_topic);
@@ -416,4 +424,30 @@ void reconnect() {
       }
     }
   }
+}
+
+void showTemperature(int t) {
+  tm1637.clear();
+  // 10°
+  //  5°
+  //  0°
+  // -1°
+  //-10°
+  // void TM1637Display::showNumberDec(int num, bool leading_zero, uint8_t length, uint8_t pos)
+
+  if (t<=-10) {
+    tm1637.showNumberDec(t, false, 3, 0);
+  } else if (t>-10 && t<0) {
+    tm1637.showNumberDec(t, false, 2, 1);
+  } else if (t>0 && t<10) {
+    tm1637.showNumberDec(t, false, 1, 2);
+  } else {
+    tm1637.showNumberDec(t, false, 2, 1);
+  }
+  
+  tm1637.setSegments(SEG_DEG, 1, 3);
+  
+  delay(2000);
+
+  
 }
