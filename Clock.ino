@@ -21,8 +21,8 @@ const uint8_t SEG_DEG[] = {
 	};
 
 //#define CLOCK1 //v obyvaku, horni zakomentovat
-//#define CLOCK2 //nahore v loznici
-#define CLOCK3 //ESP8266-01
+#define CLOCK2 //nahore v loznici
+//#define CLOCK1 //ESP8266-01
 
 #ifdef CLOCK1
 #define BRIGHTNESS      7
@@ -127,11 +127,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     int v = round(val.toFloat());
     
     tm1637.clear();
-    if (v < 0) {
-      tm1637.showNumberDec(v, false, 2, 0);
-    } else {
+    if (v>-10) {
       tm1637.showNumberDec(v, false, 2, 1);
-    }
+    } else {
+      tm1637.showNumberDec(v, false, 2, 0);
+    } 
+    
     tm1637.setSegments(SEG_DEG, 1, 3);
     
     delay(2000);
