@@ -4,9 +4,9 @@
 
 
 /* ----------------------------------------------SETTINGS---------------------------------------------- */
-const char* ssid = "YOURWIFINAME";                  // Your WiFi SSID
-const char* password = "YOURWIFIPASSWORD";           // Your WiFi password
-const char* mqtt_server = "RASPBERRY PI IP ADDRESS";    // Enter the IP-Address of your Raspberry Pi
+const char* ssid = "Datlovo";                  // Your WiFi SSID
+const char* password = "Nu6kMABmseYwbCoJ7LyG";           // Your WiFi password
+const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Raspberry Pi
 
 #define STARTUP_BRIGHTNESS 10  // Brightness that the clock is using after startup (0-255)
 
