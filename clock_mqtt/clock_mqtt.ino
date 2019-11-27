@@ -10,9 +10,9 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 
 #define STARTUP_BRIGHTNESS 10  // Brightness that the clock is using after startup (0-255)
 
-#define mqtt_auth 0           // Set this to 0 to disable authentication
-#define mqtt_user "user"      // Username for mqtt, not required if auth is disabled
-#define mqtt_password "password123" // Password for mqtt, not required if auth is disabled
+#define mqtt_auth 1           // Set this to 0 to disable authentication
+#define mqtt_user "datel"      // Username for mqtt, not required if auth is disabled
+#define mqtt_password "hanka12" // Password for mqtt, not required if auth is disabled
 
 #define device_name "Clock" // this is the hostname of the clock
 
@@ -25,7 +25,7 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 #define STARTUP_ANIMATION
 
 // uncomment the line below to enable logging into serial
-//#define DEBUG_SERIAL 
+#define DEBUG_SERIAL 
 /* ----------------------------------------------SETTINGS END---------------------------------------------- */
 
 
