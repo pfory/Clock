@@ -20,8 +20,8 @@ const uint8_t SEG_DEG[] = {
 	SEG_A | SEG_B | SEG_F | SEG_G           // 
 	};
 
-#define CLOCK1 //v obyvaku, horni
-//#define CLOCK2 //nahore v loznici
+//#define CLOCK1 //v obyvaku
+#define CLOCK2 //nahore v loznici
 //#define CLOCK1 //ESP8266-01
 
 #ifdef CLOCK1
@@ -447,7 +447,7 @@ void showTemperature(int t) {
   
   tm1637.setSegments(SEG_DEG, 1, 3);
   
-  delay(2000);
+  delay(3000);
 
   
 }
