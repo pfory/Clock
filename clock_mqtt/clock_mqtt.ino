@@ -3,7 +3,6 @@
 #include <PubSubClient.h>
 
 
-/* ----------------------------------------------SETTINGS---------------------------------------------- */
 const char* ssid = "Datlovo";                  // Your WiFi SSID
 const char* password = "Nu6kMABmseYwbCoJ7LyG";           // Your WiFi password
 const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Raspberry Pi
@@ -24,16 +23,10 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 // uncomment the line below to enable the startup animation
 #define STARTUP_ANIMATION
 
-// uncomment the line below to enable logging into serial
-#define DEBUG_SERIAL 
-/* ----------------------------------------------SETTINGS END---------------------------------------------- */
-
-
-/* ----------------------------------------------GLOBALS---------------------------------------------- */
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-int mqttdata = 0;	// indicates if a new message is available
+int mqttdata = 0;  // indicates if a new message is available
 
 // clock time variables
 int hours = 0;
@@ -49,7 +42,7 @@ unsigned long timermillis;
 unsigned long weathermillis;
 unsigned long alarmmillis;
 
-int weathersecs = 0;	// indicates how long to display the temperature
+int weathersecs = 0;  // indicates how long to display the temperature
 int pt1 = 0;
 int pt2 = 0;
 
@@ -97,11 +90,25 @@ int wg = 255;
 int wb = 255;
 
 char type = '0';  // current mode
-char mymode2 = '0';	// second mode, (fade)
+char mymode2 = '0';  // second mode, (fade)
 char old_type = '0';  // current mode
 
 char vals[14][6] = { "", "", "", "", "", "", "", "", "", "", "", "", "", "" };
-/* ----------------------------------------------GLOBALS END---------------------------------------------- */
+
+#define time
+#ifdef time
+#include <TimeLib.h>
+#include <Timezone.h>
+WiFiUDP EthernetUdp;
+static const char     ntpServerName[]       = "tik.cesnet.cz";
+//const int timeZone = 2;     // Central European Time
+//Central European Time (Frankfurt, Paris)
+TimeChangeRule        CEST                  = {"CEST", Last, Sun, Mar, 2, 120};     //Central European Summer Time
+TimeChangeRule        CET                   = {"CET",  Last, Sun, Oct, 3, 60 };     //Central European Standard Time
+Timezone CE(CEST, CET);
+unsigned int          localPort             = 8888;  // local port to listen for UDP packets
+time_t getNtpTime();
+#endif
 
 
 /* ----------------------------------------------LED STRIP CONFIG---------------------------------------------- */
@@ -116,7 +123,169 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ80
 /* ----------------------------------------------LED STRIP CONFIG END---------------------------------------------- */
 
 
-/* ----------------------------------------------FUNCTIONS START---------------------------------------------- */
+void callback(char* topic, byte* payload, unsigned int length) {
+  DEBUG_PRINT("Message arrived [");
+  DEBUG_PRINT(topic);
+  DEBUG_PRINT("] ");
+  int i = 0;
+  for (i = 0; i < length; i++) {
+    receivedChars[i] = (char)payload[i];
+  }
+  receivedChars[i] = '\0';
+  DEBUG_PRINTF(": %s\n", receivedChars);
+  mqttdata = 1;
+}
+
+
+/* ----------------------------------------------SETUP---------------------------------------------- */
+void setup() {
+  SERIAL_BEGIN;
+  //DEBUG_PRINT(F(SW_NAME));
+  //DEBUG_PRINT(F(" "));
+  //DEBUG_PRINTLN(F(VERSION));
+
+  rst_info *_reset_info = ESP.getResetInfoPtr();
+  uint8_t _reset_reason = _reset_info->reason;
+  DEBUG_PRINT("Boot-Mode: ");
+  DEBUG_PRINTLN(_reset_reason);
+  heartBeat = _reset_reason;
+  
+  /*
+ REASON_DEFAULT_RST             = 0      normal startup by power on 
+ REASON_WDT_RST                 = 1      hardware watch dog reset 
+ REASON_EXCEPTION_RST           = 2      exception reset, GPIO status won't change 
+ REASON_SOFT_WDT_RST            = 3      software watch dog reset, GPIO status won't change 
+ REASON_SOFT_RESTART            = 4      software restart ,system_restart , GPIO status won't change 
+ REASON_DEEP_SLEEP_AWAKE        = 5      wake up from deep-sleep 
+ REASON_EXT_SYS_RST             = 6      external system reset 
+  */
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
+  WiFi.printDiag(Serial);
+    
+  WiFiManager wifiManager;
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+  
+  IPAddress _ip,_gw,_sn;
+  _ip.fromString(static_ip);
+  _gw.fromString(static_gw);
+  _sn.fromString(static_sn);
+
+  wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  
+  DEBUG_PRINTLN(_ip);
+  DEBUG_PRINTLN(_gw);
+  DEBUG_PRINTLN(_sn);
+
+  //wifiManager.setConfigPortalTimeout(60); 
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wifiManager.setAPCallback(configModeCallback);
+
+  if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
+    DEBUG_PRINTLN("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  } 
+
+
+#ifdef time
+  DEBUG_PRINTLN("Setup TIME");
+  EthernetUdp.begin(localPort);
+  DEBUG_PRINT("Local port: ");
+  DEBUG_PRINTLN(EthernetUdp.localPort());
+  DEBUG_PRINTLN("waiting for sync");
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
+#endif
+
+
+#ifdef ota
+  ArduinoOTA.setHostname(HOSTNAMEOTA);
+  ArduinoOTA.onStart([]() {
+    DEBUG_PRINTLN("Start updating ");
+  });
+  ArduinoOTA.onEnd([]() {
+   DEBUG_PRINTLN("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    DEBUG_PRINTF("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    DEBUG_PRINTF("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) DEBUG_PRINTLN("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) DEBUG_PRINTLN("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) DEBUG_PRINTLN("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) DEBUG_PRINTLN("Receive Failed");
+    else if (error == OTA_END_ERROR) DEBUG_PRINTLN("End Failed");
+  });
+  ArduinoOTA.begin();
+#endif
+
+
+  type = 'c';
+  pixels.begin();
+
+  startUpAnimation();
+
+  RequestTimeUpdate();
+  SetDots(1, 1);
+  SetBrightness(STARTUP_BRIGHTNESS);
+  type = 'c';
+}
+
+
+/* ----------------------------------------------LOOP---------------------------------------------- */
+void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  ModeClock();
+  if (mqttdata > 0)serialNew();
+  else if (type == 't')ModeTimerDyn();
+  else if (type == 'w')ModeWeather();
+  else if (type == '1')TimerAlarm();
+  else if (type == '!')Alarm();
+  if (mymode2 == '*')ModeFade();
+}
+
+
+
+void startUpAnimation() {
+#ifdef STARTUP_ANIMATION
+  // Startup animation
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(255, 0, 0));
+    pixels.show();
+    delay(10);
+  }
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 255, 0));
+    pixels.show();
+    delay(10);
+  }
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 0, 255));
+    pixels.show();
+    delay(10);
+  }
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(255, 255, 255));
+    pixels.show();
+    delay(10);
+  }
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    pixels.show();
+    delay(10);
+  }
+#endif // STARTUP_ANIMATION
+}
 
 
 /*
@@ -126,11 +295,9 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ80
    - startindex: position in the string where to start
    - valuecount: amount of values to capture
 */
-void ExtractValues(int startindex, int valuecount)
-{
+void ExtractValues(int startindex, int valuecount) {
   int pos = startindex;
-  for (int c = 0; c < valuecount; c++)
-  {
+  for (int c = 0; c < valuecount; c++) {
     int i = 0;
     while (receivedChars[pos] != ';' && receivedChars[pos] != '\0') {
       vals[c][i] = receivedChars[pos];
@@ -140,12 +307,9 @@ void ExtractValues(int startindex, int valuecount)
     vals[c][i] = '\0';
     pos++;
   }
-#ifdef DEBUG_SERIAL
-  for (int p = 0; p < valuecount; p++)
-  {
-    Serial.print("Extracting: "); Serial.println(vals[p]);
+  for (int p = 0; p < valuecount; p++) {
+    DEBUG_PRINT("Extracting: "); DEBUG_PRINTLN(vals[p]);
   }
-#endif // DEBUG_SERIAL
 
 }
 
@@ -155,89 +319,69 @@ void ExtractValues(int startindex, int valuecount)
    Called when a new message arrives
    Parameters: mymode: character
 */
-void CallMode(char mymode)
-{
+void CallMode(char mymode) {
   type = mymode;
-  if (mymode == '!')Alarm();        // !
-  else if (mymode == '0')Off();          // 0
-  else if (mymode == '#') {
+  if (mymode == '!') {
+    Alarm();        // !
+  } else if (mymode == '0') {
+    Off();          // 0
+  } else if (mymode == '#') {
     mymode2 = '0';  // #
     type = old_type;
-  }
-  else if (mymode == 'd')SetDots(receivedChars[2] - '0', receivedChars[4] - '0');      // d;1;0
-  else if (mymode == 'i')Set1Dot(receivedChars[2] - '0');      // i;1
-  else if (mymode == 'a')SetMode(receivedChars[2]);      // a;c
-  else if (mymode == 'w')
-  {
+  } else if (mymode == 'd') {
+    SetDots(receivedChars[2] - '0', receivedChars[4] - '0');      // d;1;0
+  } else if (mymode == 'i') {
+    Set1Dot(receivedChars[2] - '0');      // i;1
+  } else if (mymode == 'a') {
+    SetMode(receivedChars[2]);      // a;c
+  } else if (mymode == 'w') {
     ExtractValues(2, 5);
     Weather(atoi(vals[0]), atoi(vals[1]), vals[2][0]);      // w;1;9;+;1;5
     weathersecs = 10 * atoi(vals[3]) + atoi(vals[4]);
-  }
-  else if (mymode == 'z')CustomValues(receivedChars[2] - '0', receivedChars[4] - '0', receivedChars[6] - '0', receivedChars[8] - '0'); // z;0;2;0;4
-  else if (mymode == 'x')
-  {
+  } else if (mymode == 'z') {
+      CustomValues(receivedChars[2] - '0', receivedChars[4] - '0', receivedChars[6] - '0', receivedChars[8] - '0'); // z;0;2;0;4
+  } else if (mymode == 'x') {
     ExtractValues(2, 3);
     SetGeneralColor(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  }
-  else if (mymode == 's')      // s;2;2;5;8;2;2
-  {
+  } else if (mymode == 's') {     // s;2;2;5;8;2;2
     int h = 10 * (receivedChars[2] - '0') + (receivedChars[4] - '0');
     int m = 10 * (receivedChars[6] - '0') + (receivedChars[8] - '0');
     int s = 10 * (receivedChars[10] - '0') + (receivedChars[12] - '0');
     SetTime(h, m, s);
-  }
-  else if (mymode == 'e')		// e;255;0;0;0;255;0
-  {
+  } else if (mymode == 'e') {    // e;255;0;0;0;255;0
     ExtractValues(2, 6);
     SetDotColors(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]), atoi(vals[3]), atoi(vals[4]), atoi(vals[5]));
-  }
-  else if (mymode == 'h')// h;1;255;0;0
-  {
+  } else if (mymode == 'h') {// h;1;255;0;0
     ExtractValues(4, 3);
     Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
   }
 
-  else if (mymode == 'f')    // f;1;8;255;34
-  {
+  else if (mymode == 'f') { // f;1;8;255;34
     ExtractValues(4, 3);
     Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  }
-  else if (mymode == 'g')    // g;255;10;3;100;255;200;255;10;3;100;255;200
-  {
+  } else if (mymode == 'g') {   // g;255;10;3;100;255;200;255;10;3;100;255;200
     ExtractValues(2, 12);
     SetColors(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]), atoi(vals[3]), atoi(vals[4]), atoi(vals[5]), atoi(vals[6]), atoi(vals[7]), atoi(vals[8]), atoi(vals[9]), atoi(vals[10]), atoi(vals[11]));
-  }
-
-  else if (mymode == 't')				  // t;01;15;30
-  {
+  } else if (mymode == 't') {        // t;01;15;30
     int timer_h = (receivedChars[2] - '0') * 10 + receivedChars[3] - '0';
     int timer_m = (receivedChars[5] - '0') * 10 + receivedChars[6] - '0';
     int timer_s = (receivedChars[8] - '0') * 10 + receivedChars[9] - '0';
     SetTimerDyn(timer_h, timer_m, timer_s);
-  }
-  else if (mymode == 'b')		//b;80
-  {
+  } else if (mymode == 'b') {   //b;80
     ExtractValues(2, 1);
     SetBrightness(atoi(vals[0]));
-  }
-  else if (mymode == '*')
-  {
+  } else if (mymode == '*') {
     mymode2 = '*';
     SetFadeSpeed(receivedChars[2] - '0');
   }
-  else if (mymode == '*' || mymode == '#' || mymode == '0' || mymode == '!')ResetAlarmLeds();
-  else
-  {
-#ifdef DEBUG_SERIAL
-    Serial.print("Mode did not match: "); Serial.println(mymode);
-#endif
+  else if (mymode == '*' || mymode == '#' || mymode == '0' || mymode == '!') {
+    ResetAlarmLeds();
+  } else {
+    DEBUG_PRINT("Mode did not match: "); DEBUG_PRINTLN(mymode);
     type = old_type;
   }
   pixels.show();
 }
-
-
-
 
 /*
    Function: SetGeneralColor
@@ -249,23 +393,24 @@ void CallMode(char mymode)
    - b: blue component (0-255)
 */
 void SetGeneralColor(int r, int g, int b) {
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting colors for all leds: r:%d, g:%d, b:%d\n", r, g, b);
-#endif // DEBUG_SERIAL
-  cd[0] = r;	cd[1] = g;	cd[2] = b;	cd[3] = r;	cd[4] = g;	cd[5] = b;	cd[6] = r;	cd[7] = g;	cd[8] = b;	cd[9] = r;	cd[10] = g;	cd[11] = b;
-  cdo[0] = r;	cdo[1] = g;	cdo[2] = b;	cdo[3] = r;	cdo[4] = g;	cdo[5] = b;
+  DEBUG_PRINTF("Setting colors for all leds: r:%d, g:%d, b:%d\n", r, g, b);
+  cd[0] = r;  cd[1] = g;  cd[2] = b;  cd[3] = r;  cd[4] = g;  cd[5] = b;  cd[6] = r;  cd[7] = g;  cd[8] = b;  cd[9] = r;  cd[10] = g;  cd[11] = b;
+  cdo[0] = r;  cdo[1] = g;  cdo[2] = b;  cdo[3] = r;  cdo[4] = g;  cdo[5] = b;
   DrawDots();
-  if (old_type == 'c') DrawTime();
-  else if (old_type == 't') DrawTimer();
-  else if (old_type == 'z')CustomValues(cv1, cv2, cv3, cv4);
-  if (old_type != 'w' && old_type != '0')DrawDots();
+  if (old_type == 'c') {
+    DrawTime();
+  } else if (old_type == 't') {
+    DrawTimer();
+  } else if (old_type == 'z') {
+    CustomValues(cv1, cv2, cv3, cv4);
+  }
+  if (old_type != 'w' && old_type != '0') {
+    DrawDots();
+  }
   pixels.show();
   type = old_type;
-#ifdef DEBUG_SERIAL
-  Serial.printf("Mode is now: %c\n", type);
-#endif // DEBUG_SERIAL
+  DEBUG_PRINTF("Mode is now: %c\n", type);
 }
-
 
 /*
    Function: serialNew
@@ -274,9 +419,7 @@ void SetGeneralColor(int r, int g, int b) {
    Parameters: none
 */
 void serialNew() {
-#ifdef DEBUG_SERIAL
   displayData();
-#endif // DEBUG_SERIAL
   GetMode();
   CallMode(receivedChars[0]);
   newData = false;
@@ -289,11 +432,10 @@ void serialNew() {
    Called when a new message arrives
    Parameters: none
 */
-void displayData()
-{
+void displayData() {
   if (newData == true) {
-    Serial.print("This just in ... ");
-    Serial.println(receivedChars);
+    DEBUG_PRINT("This just in ... ");
+    DEBUG_PRINTLN(receivedChars);
   }
 }
 
@@ -303,8 +445,7 @@ void displayData()
    Called when a new message arrives
    Parameters: none
 */
-void GetMode()
-{
+void GetMode() {
   old_type = type;
   if (old_type == '0' || old_type == '!')pixels.setBrightness(40);
   type = receivedChars[0];
@@ -316,8 +457,7 @@ void GetMode()
    Called when alarm ends
    Parameters: none
 */
-void ResetAlarmLeds()
-{
+void ResetAlarmLeds() {
   ad = 0;
   ar = 255;
   ag = 255;
@@ -335,28 +475,22 @@ void ResetAlarmLeds()
    - t2: second digit of the temperature
    - sign: either "+" or "-"
 */
-void Weather(int t1, int t2, char sign)
-{
+void Weather(int t1, int t2, char sign) {
   int pt1 = t1;
   int pt2 = t2;
   int temp = t1 * 10 + t2;
   if (sign == '-')t1 = t1 * (-1);
   if (sign == '-')t2 = t2 * (-1);
-#ifdef DEBUG_SERIAL
-  Serial.printf("Weather: sign: %c, t1:%d, t2:%d, time:%ds\n", sign, t1, t2, weathersecs);
-#endif
+  DEBUG_PRINTF("Weather: sign: %c, t1:%d, t2:%d, time:%ds\n", sign, t1, t2, weathersecs);
   for (int i = 0; i < NUMPIXELS; i++)pixels.setPixelColor(i, pixels.Color(0, 0, 0));
 
   //WeatherSymbols
-  if (sign != '-')
-  {
+  if (sign != '-') {
     pixels.setPixelColor(Digit3 + 0, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 1, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 2, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 3, pixels.Color(61, 225, 255));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(Digit1 + 0, pixels.Color(61, 225, 255));
   }
 
@@ -371,57 +505,57 @@ void Weather(int t1, int t2, char sign)
     pixels.setPixelColor(Digit3 + 0, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 1, pixels.Color(61, 225, 255));
   }
-  if (t1 != 0)
-  {
-    if (sign != '-')
-    {
-      if (mymode2 == '*')DrawDigit(Digit1, ar, ag, ab, t1);
-      else DrawDigit(Digit1, wr, wg, wb, t1);
-      if (mymode2 == '*')DrawDigit(Digit2, ar, ag, ab, t2);
-      else DrawDigit(Digit2, wr, wg, wb, t2);
+  if (t1 != 0) {
+    if (sign != '-') {
+      if (mymode2 == '*') {
+        DrawDigit(Digit1, ar, ag, ab, t1);
+      } else {
+        DrawDigit(Digit1, wr, wg, wb, t1);
+      }
+      if (mymode2 == '*') {
+        DrawDigit(Digit2, ar, ag, ab, t2);
+      } else DrawDigit(Digit2, wr, wg, wb, t2);
+    } else {
+      if (mymode2 == '*') {
+        DrawDigit(Digit2, ar, ag, ab, t1);
+      } else {
+        DrawDigit(Digit2, wr, wg, wb, t1);
+      }
+      if (mymode2 == '*') {
+        DrawDigit(Digit3, ar, ag, ab, t2);
+      } else {
+        DrawDigit(Digit3, wr, wg, wb, t2);
+      }
     }
-    else
-    {
-      if (mymode2 == '*')DrawDigit(Digit2, ar, ag, ab, t1);
-      else DrawDigit(Digit2, wr, wg, wb, t1);
-      if (mymode2 == '*')DrawDigit(Digit3, ar, ag, ab, t2);
-      else DrawDigit(Digit3, wr, wg, wb, t2);
-    }
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(Digit3 + 0, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 1, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 2, pixels.Color(61, 225, 255));
     pixels.setPixelColor(Digit3 + 3, pixels.Color(61, 225, 255));
-    if (sign != '-')
-    {
-      if (mymode2 == '*')DrawDigit(Digit2, ar, ag, ab, t2);
-      else DrawDigit(Digit2, wr, wg, wb, t2);
-    }
-    else
-    {
-      if (mymode2 == '*')DrawDigit(Digit2, ar, ag, ab, t2);
-      else DrawDigit(Digit2, wr, wg, wb, t2);
+    if (sign != '-') {
+      if (mymode2 == '*') {
+        DrawDigit(Digit2, ar, ag, ab, t2);
+      } else {
+        DrawDigit(Digit2, wr, wg, wb, t2);
+      }
+    } else {
+      if (mymode2 == '*') {
+        DrawDigit(Digit2, ar, ag, ab, t2);
+      } else {
+        DrawDigit(Digit2, wr, wg, wb, t2);
+      }
     }
   }
 
+  pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+  pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  pixels.show();
+  DEBUG_PRINTF("Showing the weather for %d seconds\n", weathersecs);
 
-
-pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
-pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
-pixels.show();
-#ifdef DEBUG_SERIAL
-Serial.printf("Showing the weather for %d seconds\n", weathersecs);
-#endif // DEBUG_SERIAL
-
-pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
-pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
-pixels.show();
-#ifdef DEBUG_SERIAL
-Serial.printf("Showing the weather for %d seconds\n", weathersecs);
-#endif // DEBUG_SERIAL
-
+  pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+  pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  pixels.show();
+  DEBUG_PRINTF("Showing the weather for %d seconds\n", weathersecs);
 }
 
 /*
@@ -431,8 +565,7 @@ Serial.printf("Showing the weather for %d seconds\n", weathersecs);
    Called by function Weather
    Parameters: temperature in °C
 */
-void GetWeatherColor(int temp)
-{
+void GetWeatherColor(int temp) {
   int R = 255; int G = 255; int B = 255;
   String hex = "";
   if (temp < -40) {
@@ -504,14 +637,10 @@ void GetWeatherColor(int temp)
    Called when mode is '0'
    Parameters: none
 */
-void Off()
-{
-#ifdef DEBUG_SERIAL
-  Serial.println("Clock is turning off");
-#endif // DEBUG_SERIAL
+void Off() {
+  DEBUG_PRINTLN("Clock is turning off");
 
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
+  for (int i = 0; i < NUMPIXELS; i++) {
     pixels.setPixelColor(i, pixels.Color(0, 0, 0));
   }
   pixels.setBrightness(0);
@@ -528,8 +657,7 @@ void Off()
      - 2 == Dot2 off
      - 3 == Dot2 on
 */
-void Set1Dot(int dotcode)
-{
+void Set1Dot(int dotcode) {
   if (dotcode == 0) {
     pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
     dot1 = 0;
@@ -561,14 +689,11 @@ void Set1Dot(int dotcode)
    - m: minutes (0-59)
    - s: seconds (0-59)
 */
-void SetTimerDyn(int h, int m, int s)
-{
+void SetTimerDyn(int h, int m, int s) {
   T_hours = h;
   T_mins = m;
   T_secs = s;
-#ifdef DEBUG_SERIAL
-  Serial.printf("Timer Started: %d:%d:%d\n", T_hours, T_mins, T_secs);
-#endif // DEBUG_SERIAL
+  DEBUG_PRINTF("Timer Started: %d:%d:%d\n", T_hours, T_mins, T_secs);
   DrawTimer();
   timermillis = millis();
   type = 't';
@@ -582,14 +707,13 @@ void SetTimerDyn(int h, int m, int s)
    Called when mode is "a"
    Parameters: type: any character that matches a mode, e.g.: "c", "!"
 */
-void SetMode(char newtype)
-{
+void SetMode(char newtype) {
   old_type = newtype;
   type = newtype;
-#ifdef DEBUG_SERIAL
-  Serial.printf("Mode updated: %c\n", type);
-#endif // DEBUG_SERIAL
-  if (type == '0')Off();
+  DEBUG_PRINTF("Mode updated: %c\n", type);
+  if (type == '0') {
+    Off();
+  }
   if (type == 'c') {
     if (mymode2 != '*')DrawTime();
     if (mymode2 != '*')DrawDots();
@@ -603,8 +727,7 @@ void SetMode(char newtype)
    Parameters: fadevalue: final fade level, value 0-9
    Note: untilize a switch statement in the next update instead of 10x if()
 */
-void SetFadeSpeed(int fadevalue)
-{
+void SetFadeSpeed(int fadevalue) {
   if (fadevalue == 0) {
     fadeamount = 1;
     fadespeed = 1000;
@@ -644,15 +767,11 @@ void SetFadeSpeed(int fadevalue)
   else if (fadevalue == 9) {
     fadeamount = 12;
     fadespeed = 0;
-  }
-  else
-  {
+  } else {
     fadeamount = 1;
     fadespeed = 1;
   }
-#ifdef DEBUG_SERIAL
-  Serial.print("Fadelevel is set to: "); Serial.println(fadevalue);
-#endif // DEBUG_SERIAL
+  DEBUG_PRINT("Fadelevel is set to: "); DEBUG_PRINTLN(fadevalue);
 
 }
 
@@ -663,8 +782,7 @@ void SetFadeSpeed(int fadevalue)
    Called when mode is "d"
    Parameters: state of the dots, 0 = off, 1 = on
 */
-void SetDots(int mydot1, int mydot2)
-{
+void SetDots(int mydot1, int mydot2) {
   dot1 = mydot1;
   dot2 = mydot2;
   DrawDots();
@@ -678,8 +796,7 @@ void SetDots(int mydot1, int mydot2)
    Called when mode is "e"
    Parameters: none
 */
-void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2)
-{
+void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2) {
   cdo[0] = r1;
   cdo[1] = g1;
   cdo[2] = b1;
@@ -700,12 +817,17 @@ void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2)
    Called when dots state or color gets changed
    Parameters: none
 */
-void DrawDots()
-{
-  if (dot1)pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
-  else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
-  if (dot2)pixels.setPixelColor(Digit3 - 2, pixels.Color(cdo[3], cdo[4], cdo[5]));
-  else pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+void DrawDots() {
+  if (dot1) {
+    pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
+  } else {
+    pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  }
+  if (dot2) {
+    pixels.setPixelColor(Digit3 - 2, pixels.Color(cdo[3], cdo[4], cdo[5]));
+  } else {
+    pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+  }
 }
 
 
@@ -719,27 +841,26 @@ void DrawDots()
    - g: green component (0-255)
    - b: blue component (0-255)
 */
-void Set1DotColor(int dotnr, int r, int g, int b)
-{
-  if (dotnr == 1)
-  {
+void Set1DotColor(int dotnr, int r, int g, int b) {
+  if (dotnr == 1) {
     cdo[0] = r;
     cdo[1] = g;
     cdo[2] = b;
   }
-  if (dotnr == 2)
-  {
+  if (dotnr == 2) {
     cdo[3] = r;
     cdo[4] = g;
     cdo[5] = b;
   }
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting Dot Color of %d", dotnr);
-#endif // DEBUG_SERIAL
+  DEBUG_PRINTF("Setting Dot Color of %d", dotnr);
   DrawDots();
-  if (type == 'c') DrawTime();
-  else if (type == 't') DrawTimer();
-  else if (type == 'z')CustomValues(cv1, cv2, cv3, cv4);
+  if (type == 'c') {
+    DrawTime();
+  } else if (type == 't') {
+    DrawTimer();
+  } else if (type == 'z') {
+    CustomValues(cv1, cv2, cv3, cv4);
+  }
   type = old_type;
   pixels.show();
 }
@@ -754,35 +875,36 @@ void Set1DotColor(int dotnr, int r, int g, int b)
    - g: green component (0-255)
    - b: blue component (0-255)
 */
-void Set1Color(int mydigit, int r, int g, int b)
-{
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting digit: %d, r:%d g:%d b:%d\n", mydigit, r, g, b);
-#endif // DEBUG_SERIAL
+void Set1Color(int mydigit, int r, int g, int b) {
+  DEBUG_PRINTF("Setting digit: %d, r:%d g:%d b:%d\n", mydigit, r, g, b);
   if (mydigit == 1 || mydigit == 0) {
     cd[0] = r;
     cd[1] = g;
     cd[2] = b;
-  };
+  }
   if (mydigit == 2 || mydigit == 0) {
     cd[3] = r;
     cd[4] = g;
     cd[5] = b;
-  };
+  }
   if (mydigit == 3 || mydigit == 0) {
     cd[6] = r;
     cd[7] = g;
     cd[8] = b;
-  };
+  }
   if (mydigit == 4 || mydigit == 0) {
     cd[9] = r;
     cd[10] = g;
     cd[11] = b;
-  };
+  }
 
-  if (old_type == 'c') DrawTime();
-  else if (old_type == 't') DrawTimer();
-  else if (old_type == 'z')CustomValues(cv1, cv2, cv3, cv4);
+  if (old_type == 'c') {
+    DrawTime();
+  } else if (old_type == 't') {
+    DrawTimer();
+  } else if (old_type == 'z') {
+    CustomValues(cv1, cv2, cv3, cv4);
+  }
   DrawDots();
   type = old_type;
   pixels.show();
@@ -798,8 +920,7 @@ void Set1Color(int mydigit, int r, int g, int b)
    - r3, g3, b3: rgb components for digit nr. 3
    - r4, g4, b4: rgb components for digit nr. 4
 */
-void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, int b3, int r4, int g4, int b4)
-{
+void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, int b3, int r4, int g4, int b4) {
   cd[0] = r1;
   cd[1] = g1;
   cd[2] = b1;
@@ -813,9 +934,7 @@ void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, i
   cd[10] = g4;
   cd[11] = b4;
 
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting Colors: r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d  \n", cd[0], cd[1], cd[2], cd[3], cd[4], cd[5], cd[6], cd[7], cd[8], cd[9], cd[10], cd[11]);
-#endif // DEBUG_SERIAL
+  DEBUG_PRINTF("Setting Colors: r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d  \n", cd[0], cd[1], cd[2], cd[3], cd[4], cd[5], cd[6], cd[7], cd[8], cd[9], cd[10], cd[11]);
 
   type = old_type;
   if (type == 'c') DrawTime();
@@ -831,17 +950,17 @@ void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, i
    Called when mode is "b"
    Parameters: brightness (0-255)
 */
-void SetBrightness(int brightness)
-{
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting brightness to %d%%\n", brightness);
-#endif // DEBUG_SERIAL
+void SetBrightness(int brightness) {
+  DEBUG_PRINTF("Setting brightness to %d%%\n", brightness);
   pixels.setBrightness(brightness);
   type = old_type;
   if (mymode2 != '*')DrawDots();
   pixels.show();
-  if (type == 'c' && mymode2 != '*') DrawTime();
-  else if (type == 't' && mymode2 != '*') DrawTimer();
+  if (type == 'c' && mymode2 != '*') {
+    DrawTime();
+  } else if (type == 't' && mymode2 != '*') {
+    DrawTimer();
+  }
 }
 
 /*
@@ -850,13 +969,14 @@ void SetBrightness(int brightness)
    Called in the loop
    Parameters: none
 */
-void ModeClock()
-{
-  if ((millis() - timemillis) >= 1000)
-  {
+void ModeClock() {
+  if ((millis() - timemillis) >= 1000) {
     unsigned long minidiff = millis() - timemillis - 1000;
-    if (minidiff < 200)timemillis += 1000 + minidiff;
-    else timemillis += 1000;
+    if (minidiff < 200) {
+      timemillis += 1000 + minidiff;
+    } else {
+      timemillis += 1000;
+    }
 
     secs++;
     if (secs >= 60) {
@@ -866,9 +986,10 @@ void ModeClock()
         mins = 0;
         hours++;
       }
-      if (hours >= 24) hours = 0;
-      if (type == 'c')
-      {
+      if (hours >= 24) {
+        hours = 0;
+      }
+      if (type == 'c') {
         if (mymode2 != '*')DrawTime();
         if (mymode2 != '*')DrawDots();
         pixels.show();
@@ -883,25 +1004,20 @@ void ModeClock()
    Called in the loop if mode is "t"
    Parameters: none
 */
-void ModeTimerDyn()
-{
-  if (T_hours <= 0 && T_mins <= 0 && T_secs <= 0)type = '1';
-  else
-  {
-    if ((millis() - timermillis) >= 1000)
-    {
+void ModeTimerDyn() {
+  if (T_hours <= 0 && T_mins <= 0 && T_secs <= 0) {
+    type = '1';
+  } else {
+    if ((millis() - timermillis) >= 1000) {
       unsigned long minidiff = millis() - timermillis - 1000;
       if (minidiff < 200)timermillis += 1000 + minidiff;
       else timermillis += 1000;
       T_secs--;
-      if (T_secs < 0)
-      {
+      if (T_secs < 0) {
         if (T_mins > 0 || T_hours > 0)T_secs = 59;
         T_mins--;
-        if (T_mins <= 0)
-        {
-          if (T_hours > 0)
-          {
+        if (T_mins <= 0) {
+          if (T_hours > 0) {
             T_mins = 59;
             T_hours--;
           }
@@ -919,18 +1035,13 @@ void ModeTimerDyn()
    Called in the loop if mode is "w"
    Parameters: none
 */
-void ModeWeather()
-{
-  if (mymode2 == '*')
-  {
+void ModeWeather() {
+  if (mymode2 == '*') {
     DrawDigit(Digit1, ar, ag, ab, pt1);
     DrawDigit(Digit2, ar, ag, ab, pt2);
   }
-  if (((millis() - weathermillis) / 1000) > weathersecs)
-  {
-#ifdef DEBUG_SERIAL
-    Serial.println("Setting mode back to Clock");
-#endif // DEBUG_SERIAL
+  if (((millis() - weathermillis) / 1000) > weathersecs) {
+    DEBUG_PRINTLN("Setting mode back to Clock");
 
     type = 'c';
     if (mymode2 != '*')DrawTime();
@@ -945,26 +1056,16 @@ void ModeWeather()
    Called when the timer runs out (mode is = "1")
    Parameters: none
 */
-void TimerAlarm()
-{
-  if (alarmstate)
-  {
-    if ((millis() - timermillis) >= 350)
-    {
-#ifdef DEBUG_SERIAL
-      Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+void TimerAlarm() {
+  if (alarmstate) {
+    if ((millis() - timermillis) >= 350) {
+      DEBUG_PRINTLN("ALARM!");
       timermillis = millis();
       alarmstate = 0; pixels.setBrightness(0); pixels.show();
     }
-  }
-  else
-  {
-    if ((millis() - timermillis) >= 100)
-    {
-#ifdef DEBUG_SERIAL
-      Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+  } else {
+    if ((millis() - timermillis) >= 100) {
+      DEBUG_PRINTLN("ALARM!");
       timermillis = millis();
       alarmstate = 1; pixels.setBrightness(255);
       ShiftAlarmLeds(51);
@@ -979,7 +1080,6 @@ void TimerAlarm()
       pixels.show();
     }
   }
-
 }
 
 /*
@@ -988,28 +1088,16 @@ void TimerAlarm()
    Called when mode is "!"
    Parameters: none
 */
-void Alarm()
-{
-  if (alarmstate)
-  {
-    if ((millis() - timermillis) >= 350)
-    {
-#ifdef DEBUG_SERIAL
-      Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
-
+void Alarm() {
+  if (alarmstate) {
+    if ((millis() - timermillis) >= 350) {
+      DEBUG_PRINTLN("ALARM!");
       timermillis = millis();
       alarmstate = 0; pixels.setBrightness(0); pixels.show();
     }
-  }
-  else
-  {
-    if ((millis() - timermillis) >= 100)
-    {
-#ifdef DEBUG_SERIAL
-      Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
-
+  } else {
+    if ((millis() - timermillis) >= 100) {
+      DEBUG_PRINTLN("ALARM!");
       timermillis = millis();
       alarmstate = 1; pixels.setBrightness(255);
       ShiftAlarmLeds(51);
@@ -1030,20 +1118,15 @@ void Alarm()
    Called when mode2 is "*"
    Parameters: none
 */
-void ModeFade()
-{
-  if ((millis() - timermillis) >= fadespeed)
-  {
-#ifdef DEBUG_SERIAL
-    //Serial.printf("fade: d=%d r=%d g=%d b=%d\n", ad, ar, ag, ab);
-#endif // DEBUG_SERIAL
+void ModeFade() {
+  if ((millis() - timermillis) >= fadespeed) {
+    //DEBUG_PRINTF("fade: d=%d r=%d g=%d b=%d\n", ad, ar, ag, ab);
 
     timermillis = millis();
     alarmstate = 1;
     ShiftAlarmLeds(fadeamount);
 
-    if (type != 'w')
-    {
+    if (type != 'w') {
       DrawDigit(Digit1, ar, ag, ab, hours / 10); //Draw the first digit of the hour
       DrawDigit(Digit2, ar, ag, ab, hours - ((hours / 10) * 10)); //Draw the second digit of the hour
 
@@ -1054,10 +1137,9 @@ void ModeFade()
       else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
       if (dot2)pixels.setPixelColor(Digit3 - 2, pixels.Color(ar, ag, ab));
       else pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
-    }
-    else
-
+    } else {
       pixels.show();
+    }
   }
 }
 
@@ -1068,23 +1150,17 @@ void ModeFade()
    Called in loop when mode is "w"
    Parameters: none
 */
-void DrawTimer()
-{
-#ifdef DEBUG_SERIAL
-  Serial.printf("Updating Timer: %d:%d:%d\n", T_hours, T_mins, T_secs);
-#endif // DEBUG_SERIAL
+void DrawTimer() {
+  DEBUG_PRINTF("Updating Timer: %d:%d:%d\n", T_hours, T_mins, T_secs);
 
 
-  if (T_hours > 0)
-  {
+  if (T_hours > 0) {
     DrawDigit(Digit1, cd[0], cd[1], cd[2], T_hours / 10);
     DrawDigit(Digit2, cd[3], cd[4], cd[5], T_hours - ((T_hours / 10) * 10));
 
     DrawDigit(Digit3, cd[6], cd[7], cd[8], T_mins / 10);
     DrawDigit(Digit4, cd[9], cd[10], cd[11], T_mins - ((T_mins / 10) * 10));
-  }
-  else
-  {
+  } else {
     DrawDigit(Digit1, cd[0], cd[1], cd[2], T_mins / 10);
     DrawDigit(Digit2, cd[3], cd[4], cd[5], T_mins - ((T_mins / 10) * 10));
 
@@ -1103,21 +1179,30 @@ void DrawTimer()
    - d3: value to display on the digit nr. 3
    - d4: value to display on the digit nr. 4
 */
-void CustomValues(int d1, int d2, int d3, int d4)
-{
-#ifdef DEBUG_SERIAL
-  Serial.print("Setting custom values!");
-#endif // DEBUG_SERIAL
+void CustomValues(int d1, int d2, int d3, int d4) {
+  DEBUG_PRINT("Setting custom values!");
   cv1 = d1; cv2 = d2; cv3 = d3; cv4 = d4;
-  if (d1 < 10) DrawDigit(Digit1, cd[0], cd[1], cd[2], d1); //Draw the first digit of the hour
-  else DisableDigit(1);
-  if (d2 < 10) DrawDigit(Digit2, cd[3], cd[4], cd[5], d2); //Draw the second digit of the hour
-  else DisableDigit(2);
+  if (d1 < 10) {
+    DrawDigit(Digit1, cd[0], cd[1], cd[2], d1); //Draw the first digit of the hour
+  } else {
+    DisableDigit(1);
+  }
+  if (d2 < 10) {
+    DrawDigit(Digit2, cd[3], cd[4], cd[5], d2); //Draw the second digit of the hour
+  } else {
+    DisableDigit(2);
+  }
 
-  if (d3 < 10) DrawDigit(Digit3, cd[6], cd[7], cd[8], d3); //Draw the first digit of the minute
-  else DisableDigit(3);
-  if (d4 < 10) DrawDigit(Digit4, cd[9], cd[10], cd[11], d4); //Draw the second digit of the minute
-  else DisableDigit(4);
+  if (d3 < 10) {
+    DrawDigit(Digit3, cd[6], cd[7], cd[8], d3); //Draw the first digit of the minute
+  } else {
+    DisableDigit(3);
+  }
+  if (d4 < 10) {
+    DrawDigit(Digit4, cd[9], cd[10], cd[11], d4); //Draw the second digit of the minute
+  } else {
+    DisableDigit(4);
+  }
   pixels.show();
   type = 'z';
 }
@@ -1128,11 +1213,8 @@ void CustomValues(int d1, int d2, int d3, int d4)
    Called in loop when mode is "w"
    Parameters: none
 */
-void DrawTime()
-{
-#ifdef DEBUG_SERIAL
-  Serial.printf("Updating Time: %d:%d:%d\n", hours, mins, secs);
-#endif // DEBUG_SERIAL
+void DrawTime() {
+  DEBUG_PRINTF("Updating Time: %d:%d:%d\n", hours, mins, secs);
 
   DrawDigit(Digit1, cd[0], cd[1], cd[2], hours / 10); //Draw the first digit of the hour
   DrawDigit(Digit2, cd[3], cd[4], cd[5], hours - ((hours / 10) * 10)); //Draw the second digit of the hour
@@ -1150,27 +1232,24 @@ void DrawTime()
    - m: minutes (0-59)
    - s: seconds (0-59)
 */
-void SetTime(int h, int m, int s)
-{
+void SetTime(int h, int m, int s) {
   timemillis = millis();
-#ifdef DEBUG_SERIAL
-  Serial.print("\nSetting the time: ");
-#endif // DEBUG_SERIAL
+  DEBUG_PRINT("\nSetting the time: ");
 
   hours = h;
   mins = m;
   secs = s;
 
-#ifdef DEBUG_SERIAL
-  Serial.print(hours);
-  Serial.print(":");
-  Serial.print(mins);
-  Serial.print(":");
-  Serial.println(secs);
+  DEBUG_PRINT(hours);
+  DEBUG_PRINT(":");
+  DEBUG_PRINT(mins);
+  DEBUG_PRINT(":");
+  DEBUG_PRINTLN(secs);
 
-#endif // DEBUG_SERIAL
 
-  if (old_type == 'c')DrawTime();
+  if (old_type == 'c') {
+    DrawTime();
+  }
   type = old_type;
 }
 
@@ -1179,33 +1258,24 @@ void SetTime(int h, int m, int s)
    Displays remaining time in HH:MM or MM:SS depending on time
    Parameters: position on the clock (1-4)
 */
-void DisableDigit(int mydigit)
-{
-  if (mydigit == 1)
-  {
-    for (int i = 0; i < 14; i++)
-    {
+void DisableDigit(int mydigit) {
+  if (mydigit == 1) {
+    for (int i = 0; i < 14; i++) {
       pixels.setPixelColor(Digit1 + i, pixels.Color(0, 0, 0));
     }
   }
-  if (mydigit == 2)
-  {
-    for (int i = 0; i < 14; i++)
-    {
+  if (mydigit == 2) {
+    for (int i = 0; i < 14; i++) {
       pixels.setPixelColor(Digit2 + i, pixels.Color(0, 0, 0));
     }
   }
-  if (mydigit == 3)
-  {
-    for (int i = 0; i < 14; i++)
-    {
+  if (mydigit == 3) {
+    for (int i = 0; i < 14; i++) {
       pixels.setPixelColor(Digit3 + i, pixels.Color(0, 0, 0));
     }
   }
-  if (mydigit == 4)
-  {
-    for (int i = 0; i < 14; i++)
-    {
+  if (mydigit == 4) {
+    for (int i = 0; i < 14; i++) {
       pixels.setPixelColor(Digit4 + i, pixels.Color(0, 0, 0));
     }
   }
@@ -1222,63 +1292,41 @@ void DisableDigit(int mydigit)
    - b: blue component (0-255)
    - n: value to be drawn (0-9)
 */
-void DrawDigit(int offset, int r, int g, int b, int n)
-{
+void DrawDigit(int offset, int r, int g, int b, int n) {
 
-  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) //MIDDLE
-  {
+  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
     pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) //TOP RIGHT
-  {
+  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
     pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) //TOP
-  {
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
     pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) //TOP LEFT
-  {
+  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
     pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 6 || n == 8) //BOTTOM LEFT
-  {
+  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
     pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) //BOTTOM
-  {
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
     pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) //BOTTOM RIGHT
-  {
+  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
     pixels.setPixelColor(6 + offset, pixels.Color(r, g, b));
-  }
-  else
-  {
+  } else {
     pixels.setPixelColor(6 + offset, pixels.Color(0, 0, 0));
   }
   pixels.show();
@@ -1290,42 +1338,34 @@ void DrawDigit(int offset, int r, int g, int b, int n)
    Called by Alarm(), TimerAlarm(), ModeFade()
    Parameters: amount: speed of the fade effect
 */
-void ShiftAlarmLeds(int amount)
-{
-  if (ad == 0)
-  {
+void ShiftAlarmLeds(int amount) {
+  if (ad == 0) {
     ag = ag - amount; ab = ab - amount; if (ag <= 0 && ab <= 0)ad++; if (ag < 0) {
       ag = 0;
       ab = 0;
     }
   }
-  if (ad == 1)
-  {
+  if (ad == 1) {
     ag = ag + amount; if (ag >= 255)ad++; if (ag > 255)ag = 255;
   }
-  if (ad == 2)
-  {
+  if (ad == 2) {
     ar = ar - amount; if (ar <= 0)ad++; if (ar < 0)ar = 0;
   }
-  if (ad == 3)
-  {
+  if (ad == 3) {
     ab = ab + amount; if (ab >= 255)ad++; if (ab > 255)ab = 255;
   }
-  if (ad == 4)
-  {
+  if (ad == 4) {
     ag = ag - amount; if (ag <= 0)ad++; if (ag < 0)ag = 0;
   }
-  if (ad == 5)
-  {
+  if (ad == 5) {
     ar = ar + amount; if (ar >= 255)ad++; if (ar > 255)ar = 255;
   }
-  if (ad == 6)
-  {
+  if (ad == 6) {
     ab = ab - amount; if (ab <= 0)ad++; if (ab < 0)ab = 0;
   }
-  if (ad == 7)
-  {
-    ab = ab + amount; ag = ag + amount; if (ab >= 255)ad = 0; if (ab > 255) {
+  if (ad == 7) {
+    ab = ab + amount; ag = ag + amount; 
+    if (ab >= 255)ad = 0; if (ab > 255) {
       ab = 255;
       ag = 255;
     }
@@ -1338,175 +1378,114 @@ void ShiftAlarmLeds(int amount)
    Called by Connecting/Reconnecting to the wifi
    Parameters: none
 */
-void RequestTimeUpdate()
-{
-#ifdef DEBUG_SERIAL
-  Serial.println("Requesting Time Update!");
-#endif // DEBUG_SERIAL
+void RequestTimeUpdate() {
+  DEBUG_PRINTLN("Requesting Time Update!");
   client.publish(mqtt_request_topic, "update", true);
 }
 
 
-/* ----------------------------------------------FUNCTIONS END---------------------------------------------- */
-
-/* ----------------------------------------------COMMUNICATION---------------------------------------------- */
 void reconnect() {
   while (!client.connected()) {
-#ifdef DEBUG_SERIAL
-    Serial.print("Attempting MQTT connection...");
-#endif // DEBUG_SERIAL
-    if (mqtt_auth == 1)
-    {
+    DEBUG_PRINT("Attempting MQTT connection...");
+    if (mqtt_auth == 1) {
       if (client.connect(device_name, mqtt_user, mqtt_password)) {
-#ifdef DEBUG_SERIAL
-        Serial.println("connected");
-#endif // DEBUG_SERIAL
+        DEBUG_PRINTLN("connected");
         client.subscribe(mqtt_topic);
-      }
-      else {
-        Serial.print(client.state());
-#ifdef DEBUG_SERIAL
-        Serial.println(" try again in 5 seconds");
-        Serial.print("failed, rc=");
-#endif // DEBUG_SERIAL
+      } else {
+        DEBUG_PRINT(client.state());
+        DEBUG_PRINTLN(" try again in 5 seconds");
+        DEBUG_PRINT("failed, rc=");
         delay(5000);
       }
-    }
-    else
-    {
+    } else {
       if (client.connect(device_name)) {
-#ifdef DEBUG_SERIAL
-        Serial.println("connected");
-#endif // DEBUG_SERIAL
+        DEBUG_PRINTLN("connected");
         client.subscribe(mqtt_topic);
-      }
-      else {
-        Serial.print(client.state());
-#ifdef DEBUG_SERIAL
-        Serial.println(" try again in 5 seconds");
-        Serial.print("failed, rc=");
-#endif // DEBUG_SERIAL
+      } else {
+        DEBUG_PRINT(client.state());
+        DEBUG_PRINTLN(" try again in 5 seconds");
+        DEBUG_PRINT("failed, rc=");
         delay(5000);
       }
     }
   }
   RequestTimeUpdate();
 }
-/* ----------------------------------------------COMUNICATION END---------------------------------------------- */
 
-/* ----------------------------------------------MQTT CALLBACK---------------------------------------------- */
-void callback(char* topic, byte* payload, unsigned int length) {
-#ifdef DEBUG_SERIAL
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-#endif // DEBUG_SERIAL
-  int i = 0;
-  for (i = 0; i < length; i++) {
-    receivedChars[i] = (char)payload[i];
+
+#ifdef time
+/*-------- NTP code ----------*/
+
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+time_t getNtpTime() {
+  //IPAddress ntpServerIP; // NTP server's ip address
+  IPAddress ntpServerIP = IPAddress(195, 113, 144, 201);
+
+  while (EthernetUdp.parsePacket() > 0) ; // discard any previously received packets
+  DEBUG_PRINTLN("Transmit NTP Request");
+  // get a random server from the pool
+  //WiFi.hostByName(ntpServerName, ntpServerIP);
+  DEBUG_PRINT(ntpServerName);
+  DEBUG_PRINT(": ");
+  DEBUG_PRINTLN(ntpServerIP);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = EthernetUdp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      DEBUG_PRINTLN("Receive NTP Response");
+      EthernetUdp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+      unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+      // combine the four bytes (two words) into a long integer
+      // this is NTP time (seconds since Jan 1 1900):
+      unsigned long secsSince1900 = highWord << 16 | lowWord;
+      DEBUG_PRINT("Seconds since Jan 1 1900 = " );
+      DEBUG_PRINTLN(secsSince1900);
+
+      // now convert NTP time into everyday time:
+      DEBUG_PRINT("Unix time = ");
+      // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+      const unsigned long seventyYears = 2208988800UL;
+      // subtract seventy years:
+      unsigned long epoch = secsSince1900 - seventyYears;
+      // print Unix time:
+      DEBUG_PRINTLN(epoch);
+    
+      TimeChangeRule *tcr;
+      time_t utc;
+      utc = epoch;
+      
+      return CE.toLocal(utc, &tcr);
+      //return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
   }
-  receivedChars[i] = '\0';
-#ifdef DEBUG_SERIAL
-  Serial.printf(": %s\n", receivedChars);
-#endif // DEBUG_SERIAL
-  mqttdata = 1;
+  DEBUG_PRINTLN("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
 }
-/* ----------------------------------------------MQTT CALLBACK END---------------------------------------------- */
 
-/* ----------------------------------------------SETUP---------------------------------------------- */
-void setup()
-{
-#ifdef DEBUG_SERIAL
-  Serial.begin(115200);
-  delay(3000);
-  Serial.println();
-  Serial.println("Clock is booting up!");
-#endif // DEBUG_SERIAL
-  delay(3000);
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-  // Wait until the connection has been confirmed before continuing
-#ifdef DEBUG_SERIAL
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-#endif // DEBUG_SERIAL
-
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-#ifdef DEBUG_SERIAL
-    Serial.print(".");
-#endif // DEBUG_SERIAL
-  }
-
-  // Debugging - Output the IP Address of the ESP8266
-#ifdef DEBUG_SERIAL
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  delay(1000);
-  Serial.println("Clock is now ready!");
-#endif // DEBUG_SERIAL
-
-  type = 'c';
-  pixels.begin();
-
-#ifdef STARTUP_ANIMATION
-  // Startup animation
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(255, 0, 0));
-    pixels.show();
-    delay(10);
-  }
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(0, 255, 0));
-    pixels.show();
-    delay(10);
-  }
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(0, 0, 255));
-    pixels.show();
-    delay(10);
-  }
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(255, 255, 255));
-    pixels.show();
-    delay(10);
-  }
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
-    pixels.show();
-    delay(10);
-  }
-#endif // STARTUP_ANIMATION
-
-  RequestTimeUpdate();
-  SetDots(1, 1);
-  SetBrightness(STARTUP_BRIGHTNESS);
-  type = 'c';
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address) {
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  EthernetUdp.beginPacket(address, 123); //NTP requests are to port 123
+  EthernetUdp.write(packetBuffer, NTP_PACKET_SIZE);
+  EthernetUdp.endPacket();
 }
-/* ----------------------------------------------SETUP END---------------------------------------------- */
 
-
-
-/* ----------------------------------------------LOOP---------------------------------------------- */
-void loop()
-{
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-  ModeClock();
-  if (mqttdata > 0)serialNew();
-  else if (type == 't')ModeTimerDyn();
-  else if (type == 'w')ModeWeather();
-  else if (type == '1')TimerAlarm();
-  else if (type == '!')Alarm();
-  if (mymode2 == '*')ModeFade();
-}
-/* ----------------------------------------------LOOP END---------------------------------------------- */
+#endif
