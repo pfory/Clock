@@ -16,7 +16,7 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 
 #define device_name "Clock" // this is the hostname of the clock
 
-#define mqtt_topic "ClockMini"    // here you have to set the topic for mqtt control
+#define mqtt_topic "Clock"    // here you have to set the topic for mqtt control
 #define mqtt_request_topic "request_Clock"  // here you have to set the topic for mqtt request, this is used that the clock gets the time on startup/reconnecting
 
 #define PIN 2                 // Pin of the led strip, default 2 (that is D4 on the wemos)
