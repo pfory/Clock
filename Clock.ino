@@ -21,8 +21,8 @@ const uint8_t SEG_DEG[] = {
 	};
 
 //#define CLOCK1 //v obyvaku
-#define CLOCK2 //nahore v loznici
-//#define CLOCK1 //ESP8266-01
+//#define CLOCK2 //nahore v loznici
+#define CLOCK3 //ESP8266-01
 
 #ifdef CLOCK1
 #define BRIGHTNESS      7
