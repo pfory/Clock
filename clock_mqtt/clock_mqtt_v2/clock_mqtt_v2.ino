@@ -26,6 +26,31 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 
 // uncomment the line below to enable logging into serial
 #define DEBUG_SERIAL 
+
+#define AUTOCONNECTNAME   HOSTNAMEOTA
+#define AUTOCONNECTPWD    "password"
+
+
+#define ota
+#ifdef ota
+#include <ArduinoOTA.h>
+#define HOSTNAMEOTA   "ClockBig"
+#endif
+
+
+#ifdef DEBUG_SERIAL
+  #define DEBUG_PRINT(x)         Serial.print (x)
+  #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
+  #define DEBUG_PRINTLN(x)       Serial.println (x)
+  #define DEBUG_PRINTHEX(x)      Serial.print (x, HEX)
+  #define PORTSPEED 115200
+  #define SERIAL_BEGIN           Serial.begin(PORTSPEED);
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTDEC(x)
+  #define DEBUG_PRINTLN(x)
+#endif 
+
 /* ----------------------------------------------SETTINGS END---------------------------------------------- */
 
 
@@ -140,12 +165,10 @@ void ExtractValues(int startindex, int valuecount)
 		vals[c][i] = '\0';
 		pos++;
 	}
-#ifdef DEBUG_SERIAL
 	for (int p = 0; p < valuecount; p++)
 	{
-		Serial.print("Extracting: "); Serial.println(vals[p]);
+		DEBUG_PRINT("Extracting: "); DEBUG_PRINTLN(vals[p]);
 	}
-#endif // DEBUG_SERIAL
 
 }
 
@@ -222,9 +245,7 @@ void CallMode(char mymode)
 	else if (mymode == '*' || mymode == '#' || mymode == '0' || mymode == '!')ResetAlarmLeds();
 	else
 	{
-#ifdef DEBUG_SERIAL
-		Serial.print("Mode did not match: "); Serial.println(mymode);
-#endif
+		DEBUG_PRINT("Mode did not match: "); DEBUG_PRINTLN(mymode);
 		type = old_type;
 	}
 	pixels.show();
@@ -245,7 +266,7 @@ void CallMode(char mymode)
 void SetGeneralColor(int r, int g, int b) {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Setting colors for all leds: r:%d, g:%d, b:%d\n", r, g, b);
-#endif // DEBUG_SERIAL
+#endif
 	cd[0] = r;	cd[1] = g;	cd[2] = b;	cd[3] = r;	cd[4] = g;	cd[5] = b;	cd[6] = r;	cd[7] = g;	cd[8] = b;	cd[9] = r;	cd[10] = g;	cd[11] = b;
 	cdo[0] = r;	cdo[1] = g;	cdo[2] = b;	cdo[3] = r;	cdo[4] = g;	cdo[5] = b;
 	DrawDots();
@@ -257,7 +278,7 @@ void SetGeneralColor(int r, int g, int b) {
 	type = old_type;
 #ifdef DEBUG_SERIAL
 	Serial.printf("Mode is now: %c\n", type);
-#endif // DEBUG_SERIAL
+#endif
 }
 
 
@@ -268,9 +289,7 @@ void SetGeneralColor(int r, int g, int b) {
  * Parameters: none
  */
 void serialNew() {
-#ifdef DEBUG_SERIAL
 	displayData();
-#endif // DEBUG_SERIAL
 	GetMode();
 	CallMode(receivedChars[0]);
 	newData = false;
@@ -286,8 +305,8 @@ void serialNew() {
 void displayData()
 {
 	if (newData == true) {
-		Serial.print("This just in ... ");
-		Serial.println(receivedChars);
+		DEBUG_PRINT("This just in ... ");
+		DEBUG_PRINTLN(receivedChars);
 	}
 }
 
@@ -335,7 +354,9 @@ void Weather(int t1, int t2, char sign) {
   int temp = t1 * 10 + t2;
   if (sign == '-') temp = temp * -1;
   // if (sign == '-')t2 = t2 * (-1);
+#ifdef DEBUG_SERIAL
   Serial.printf("Weather: sign: %c, t1:%d, t2:%d, time:%ds\n", sign, t1, t2, weathersecs);
+#endif
   for (int i = 0; i < NUMPIXELS; i++)pixels.setPixelColor(i, pixels.Color(0, 0, 0));
 
   GetWeatherColor(temp);
@@ -430,7 +451,9 @@ void Weather(int t1, int t2, char sign) {
   pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
   pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
   pixels.show();
+#ifdef DEBUG_SERIAL
   Serial.printf("Showing the weather for %d seconds\n", weathersecs);
+#endif
 
   // pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
   // pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
@@ -490,9 +513,7 @@ void GetWeatherColor(int temp)
  */
 void Off()
 {
-#ifdef DEBUG_SERIAL
-	Serial.println("Clock is turning off");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINTLN("Clock is turning off");
 
 	for (int i = 0; i < NUMPIXELS; i++)
 	{
@@ -552,7 +573,7 @@ void SetTimerDyn(int h, int m, int s)
 	T_secs = s;
 #ifdef DEBUG_SERIAL
 	Serial.printf("Timer Started: %d:%d:%d\n", T_hours, T_mins, T_secs);
-#endif // DEBUG_SERIAL
+#endif
 	DrawTimer();
 	timermillis = millis();
 	type = 't';
@@ -572,7 +593,7 @@ void SetMode(char newtype)
 	type = newtype;
 #ifdef DEBUG_SERIAL
 	Serial.printf("Mode updated: %c\n", type);
-#endif // DEBUG_SERIAL
+#endif
 	if (type == '0')Off();
 	if (type == 'c') {
 		if (mymode2 != '*')DrawTime();
@@ -634,9 +655,7 @@ void SetFadeSpeed(int fadevalue)
 		fadeamount = 1;
 		fadespeed = 1;
 	}
-#ifdef DEBUG_SERIAL
-	Serial.print("Fadelevel is set to: "); Serial.println(fadevalue);
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT("Fadelevel is set to: "); DEBUG_PRINTLN(fadevalue);
 
 }
 
@@ -717,9 +736,7 @@ void Set1DotColor(int dotnr, int r, int g, int b)
 		cdo[4] = g;
 		cdo[5] = b;
 	}
-#ifdef DEBUG_SERIAL
 	Serial.printf("Setting Dot Color of %d", dotnr);
-#endif // DEBUG_SERIAL
 	DrawDots();
 	if (type == 'c') DrawTime();
 	else if (type == 't') DrawTimer();
@@ -742,7 +759,7 @@ void Set1Color(int mydigit, int r, int g, int b)
 {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Setting digit: %d, r:%d g:%d b:%d\n", mydigit, r, g, b);
-#endif // DEBUG_SERIAL
+#endif
 	if (mydigit == 1 || mydigit == 0) {
 		cd[0] = r;
 		cd[1] = g;
@@ -799,7 +816,7 @@ void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, i
 
 #ifdef DEBUG_SERIAL
 	Serial.printf("Setting Colors: r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d r:%d g:%d b:%d  \n", cd[0], cd[1], cd[2], cd[3], cd[4], cd[5], cd[6], cd[7], cd[8], cd[9], cd[10], cd[11]);
-#endif // DEBUG_SERIAL
+#endif
 
 	type = old_type;
 	if (type == 'c') DrawTime();
@@ -817,9 +834,7 @@ void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, i
  */
 void SetBrightness(int brightness)
 {
-#ifdef DEBUG_SERIAL
 	Serial.printf("Setting brightness to %d%%\n", brightness);
-#endif // DEBUG_SERIAL
 	pixels.setBrightness(brightness);
 	type = old_type;
 	//if (mymode2 != '*')DrawDots();
@@ -911,9 +926,7 @@ void ModeWeather()
 		DrawDigit(Digit2, ar, ag, ab, pt2);
 	}
 	if (((millis() - weathermillis) / 1000) > weathersecs) {
-#ifdef DEBUG_SERIAL
-		Serial.println("Setting mode back to Clock");
-#endif // DEBUG_SERIAL
+		DEBUG_PRINTLN("Setting mode back to Clock");
 
 		type = 'c';
 		if (mymode2 != '*')DrawTime();
@@ -934,9 +947,7 @@ void TimerAlarm()
 	{
 		if ((millis() - timermillis) >= 350)
 		{
-#ifdef DEBUG_SERIAL
-			Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+			DEBUG_PRINTLN("ALARM!");
 			timermillis = millis();
 			alarmstate = 0; pixels.setBrightness(0); pixels.show();
 		}
@@ -945,9 +956,7 @@ void TimerAlarm()
 	{
 		if ((millis() - timermillis) >= 100)
 		{
-#ifdef DEBUG_SERIAL
-			Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+			DEBUG_PRINTLN("ALARM!");
 			timermillis = millis();
 			alarmstate = 1; pixels.setBrightness(255);
 			ShiftAlarmLeds(51);
@@ -977,9 +986,7 @@ void Alarm()
 	{
 		if ((millis() - timermillis) >= 350)
 		{
-#ifdef DEBUG_SERIAL
-			Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+			DEBUG_PRINTLN("ALARM!");
 
 			timermillis = millis();
 			alarmstate = 0; pixels.setBrightness(0); pixels.show();
@@ -989,9 +996,7 @@ void Alarm()
 	{
 		if ((millis() - timermillis) >= 100)
 		{
-#ifdef DEBUG_SERIAL
-			Serial.println("ALARM!");
-#endif // DEBUG_SERIAL
+			DEBUG_PRINTLN("ALARM!");
 
 			timermillis = millis();
 			alarmstate = 1; pixels.setBrightness(255);
@@ -1017,9 +1022,7 @@ void ModeFade()
 {
 	if ((millis() - timermillis) >= fadespeed)
 	{
-#ifdef DEBUG_SERIAL
 		//Serial.printf("fade: d=%d r=%d g=%d b=%d\n", ad, ar, ag, ab);
-#endif // DEBUG_SERIAL
 
 		timermillis = millis();
 		alarmstate = 1;
@@ -1055,9 +1058,7 @@ void DrawTimer()
 {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Updating Timer: %d:%d:%d\n", T_hours, T_mins, T_secs);
-#endif // DEBUG_SERIAL
-
-
+#endif
 	if (T_hours > 0)
 	{
 		DrawDigit(Digit1, cd[0], cd[1], cd[2], T_hours / 10);
@@ -1088,9 +1089,7 @@ void DrawTimer()
  */
 void CustomValues(int d1, int d2, int d3, int d4)
 {
-#ifdef DEBUG_SERIAL
-	Serial.print("Setting custom values!");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT("Setting custom values!");
 	cv1 = d1; cv2 = d2; cv3 = d3; cv4 = d4;
 	if (d1 < 10) DrawDigit(Digit1, cd[0], cd[1], cd[2], d1); //Draw the first digit of the hour
 	else DisableDigit(1);
@@ -1115,8 +1114,7 @@ void DrawTime()
 {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Updating Time: %d:%d:%d\n", hours, mins, secs);
-#endif // DEBUG_SERIAL
-
+#endif
 	DrawDigit(Digit1, cd[0], cd[1], cd[2], hours / 10); //Draw the first digit of the hour
 	DrawDigit(Digit2, cd[3], cd[4], cd[5], hours - ((hours / 10) * 10)); //Draw the second digit of the hour
 
@@ -1136,22 +1134,17 @@ void DrawTime()
 void SetTime(int h, int m, int s)
 {
 	timemillis = millis();
-#ifdef DEBUG_SERIAL
-	Serial.print("\nSetting the time: ");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT("\nSetting the time: ");
 
 	hours = h;
 	mins = m;
 	secs = s;
 
-#ifdef DEBUG_SERIAL
-	Serial.print(hours);
-	Serial.print(":");
-	Serial.print(mins);
-	Serial.print(":");
-	Serial.println(secs);
-
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT(hours);
+	DEBUG_PRINT(":");
+	DEBUG_PRINT(mins);
+	DEBUG_PRINT(":");
+	DEBUG_PRINTLN(secs);
 
 	if (old_type == 'c')DrawTime();
 	type = old_type;
@@ -1323,9 +1316,7 @@ void ShiftAlarmLeds(int amount)
  */
 void RequestTimeUpdate()
 {
-#ifdef DEBUG_SERIAL
-	Serial.println("Requesting Time Update!");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINTLN("Requesting Time Update!");
 	client.publish(mqtt_request_topic, "update", true);
 }
 
@@ -1335,40 +1326,30 @@ void RequestTimeUpdate()
 /* ----------------------------------------------COMMUNICATION---------------------------------------------- */
 void reconnect() {
 	while (!client.connected()) {
-#ifdef DEBUG_SERIAL
-		Serial.print("Attempting MQTT connection...");
-#endif // DEBUG_SERIAL
+		DEBUG_PRINT("Attempting MQTT connection...");
 		if (mqtt_auth == 1)
 		{
 			if (client.connect(device_name, mqtt_user, mqtt_password)) {
-#ifdef DEBUG_SERIAL
-				Serial.println("connected");
-#endif // DEBUG_SERIAL
+				DEBUG_PRINTLN("connected");
 				client.subscribe(mqtt_topic);
 			}
 			else {
-				Serial.print(client.state());
-#ifdef DEBUG_SERIAL
-				Serial.println(" try again in 5 seconds");
-				Serial.print("failed, rc=");
-#endif // DEBUG_SERIAL
+				DEBUG_PRINT(client.state());
+				DEBUG_PRINTLN(" try again in 5 seconds");
+				DEBUG_PRINT("failed, rc=");
 				delay(5000);
 			}
 		}
 		else
 		{
 			if (client.connect(device_name)) {
-#ifdef DEBUG_SERIAL
-				Serial.println("connected");
-#endif // DEBUG_SERIAL
+				DEBUG_PRINTLN("connected");
 				client.subscribe(mqtt_topic);
 			}
 			else {
-				Serial.print(client.state());
-#ifdef DEBUG_SERIAL
-				Serial.println(" try again in 5 seconds");
-				Serial.print("failed, rc=");
-#endif // DEBUG_SERIAL
+				DEBUG_PRINT(client.state());
+				DEBUG_PRINTLN(" try again in 5 seconds");
+				DEBUG_PRINT("failed, rc=");
 				delay(5000);
 			}
 		}
@@ -1379,19 +1360,15 @@ void reconnect() {
 
 /* ----------------------------------------------MQTT CALLBACK---------------------------------------------- */
 void callback(char* topic, byte* payload, unsigned int length) {
-#ifdef DEBUG_SERIAL
-	Serial.print("Message arrived [");
-	Serial.print(topic);
-	Serial.print("] ");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT("Message arrived [");
+	DEBUG_PRINT(topic);
+	DEBUG_PRINT("] ");
 	int i = 0;
 	for (i = 0; i < length; i++) {
 		receivedChars[i] = (char)payload[i];
 	}
 	receivedChars[i] = '\0';
-#ifdef DEBUG_SERIAL
 	Serial.printf(": %s\n", receivedChars);
-#endif // DEBUG_SERIAL
 	mqttdata = 1;
 }
 /* ----------------------------------------------MQTT CALLBACK END---------------------------------------------- */
@@ -1404,43 +1381,61 @@ void setup()
 //GPIO 1 (TX) swap the pin to a GPIO.
 //pinMode(1, FUNCTION_3); 
 //GPIO 3 (RX) swap the pin to a GPIO.
- pinMode(3, FUNCTION_3); 
+ // pinMode(3, FUNCTION_3); 
 //**************************************************
   
-#ifdef DEBUG_SERIAL
-	Serial.begin(115200);
-	delay(3000);
-	Serial.println();
-	Serial.println("Clock is booting up!");
-#endif // DEBUG_SERIAL
-	delay(3000);
+	SERIAL_BEGIN(115200);
+	DEBUG_PRINTLN();
+	DEBUG_PRINTLN("Clock is booting up!");
 	client.setServer(mqtt_server, 1883);
 	client.setCallback(callback);
 	// Wait until the connection has been confirmed before continuing
-#ifdef DEBUG_SERIAL
-	Serial.print("Connecting to ");
-	Serial.println(ssid);
-#endif // DEBUG_SERIAL
+	DEBUG_PRINT("Connecting to ");
+	DEBUG_PRINTLN(ssid);
 
 	WiFi.begin(ssid, password);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
-#ifdef DEBUG_SERIAL
-		Serial.print(".");
-#endif // DEBUG_SERIAL
+		DEBUG_PRINT(".");
 	}
 
 	// Debugging - Output the IP Address of the ESP8266
-#ifdef DEBUG_SERIAL
-	Serial.println("WiFi connected");
-	Serial.print("IP address: ");
-	Serial.println(WiFi.localIP());
+	DEBUG_PRINTLN("WiFi connected");
+	DEBUG_PRINT("IP address: ");
+	DEBUG_PRINTLN(WiFi.localIP());
 	delay(1000);
-	Serial.println("Clock is now ready!");
-#endif // DEBUG_SERIAL
+	DEBUG_PRINTLN("Clock is now ready!");
+
+
+#ifdef ota
+  ArduinoOTA.setHostname(HOSTNAMEOTA);
+  ArduinoOTA.onStart([]() {
+    DEBUG_PRINTLN("Start updating ");
+  });
+  ArduinoOTA.onEnd([]() {
+   DEBUG_PRINTLN("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+#ifdef DEBUG_SERIAL
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+#endif
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+#ifdef DEBUG_SERIAL
+    Serial.printf("Error[%u]: ", error);
+#endif
+    if (error == OTA_AUTH_ERROR) DEBUG_PRINTLN("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) DEBUG_PRINTLN("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) DEBUG_PRINTLN("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) DEBUG_PRINTLN("Receive Failed");
+    else if (error == OTA_END_ERROR) DEBUG_PRINTLN("End Failed");
+  });
+  ArduinoOTA.begin();
+#endif
 
 	type = 'c';
 	pixels.begin();
+  
 
 #ifdef STARTUP_ANIMATION
 	// Startup animation
@@ -1499,5 +1494,10 @@ void loop()
 	else if (type == '1')TimerAlarm();
 	else if (type == '!')Alarm();
 	if (mymode2 == '*')ModeFade();
+  
+#ifdef ota
+  ArduinoOTA.handle();
+#endif
+
 }
 /* ----------------------------------------------LOOP END---------------------------------------------- */
