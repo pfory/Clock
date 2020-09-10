@@ -38,10 +38,11 @@ static const char* const      mqtt_request_topic             = "request_Clock";
 
 
 #ifdef DEBUG_SERIAL
-  #define DEBUG_PRINT(x)         Serial.print (x)
-  #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
-  #define DEBUG_PRINTLN(x)       Serial.println (x)
-  #define DEBUG_PRINTHEX(x)      Serial.print (x, HEX)
+  #define DEBUG_PRINT(x)         Serial.print(x)
+  #define DEBUG_PRINTDEC(x)      Serial.print(x, DEC)
+  #define DEBUG_PRINTLN(x)       Serial.println(x)
+  #define DEBUG_PRINTHEX(x)      Serial.print(x, HEX)
+  #define DEBUG_PRINTF(x,y)      Serial.printf(x, y)
   #define PORTSPEED 115200
   #define SERIAL_BEGIN           Serial.begin(PORTSPEED);
 #else
@@ -98,7 +99,7 @@ unsigned long timermillis;
 unsigned long weathermillis;
 unsigned long alarmmillis;
 
-int weathersecs = 0;	// indicates how long to display the temperature
+int weathersecs = 5;	// indicates how long to display the temperature
 int pt1 = 0;
 int pt2 = 0;
 
@@ -175,11 +176,9 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ80
  * - startindex: position in the string where to start
  * - valuecount: amount of values to capture
  */
-void ExtractValues(int startindex, int valuecount)
-{
+void ExtractValues(int startindex, int valuecount) {
 	int pos = startindex;
-	for (int c = 0; c < valuecount; c++)
-	{
+	for (int c = 0; c < valuecount; c++) {
 		int i = 0;
 		while (receivedChars[pos] != ';' && receivedChars[pos] != '\0') {
 			vals[c][i] = receivedChars[pos];
@@ -189,11 +188,9 @@ void ExtractValues(int startindex, int valuecount)
 		vals[c][i] = '\0';
 		pos++;
 	}
-	for (int p = 0; p < valuecount; p++)
-	{
+	for (int p = 0; p < valuecount; p++) {
 		DEBUG_PRINT("Extracting: "); DEBUG_PRINTLN(vals[p]);
 	}
-
 }
 
 /*
@@ -202,8 +199,7 @@ void ExtractValues(int startindex, int valuecount)
  * Called when a new message arrives
  * Parameters: mymode: character
  */
-void CallMode(char mymode)
-{
+void CallMode(char mymode) {
 	type = mymode;
 	if (mymode == '!') Alarm();        // !
 	else if (mymode == '0') {
@@ -285,9 +281,7 @@ void SetGeneralColor(int r, int g, int b) {
 	if (old_type != 'w' && old_type != '0')DrawDots();
 	pixels.show();
 	type = old_type;
-#ifdef DEBUG_SERIAL
-	Serial.printf("Mode is now: %c\n", type);
-#endif
+	DEBUG_PRINTF("Mode is now: %c\n", type);
 }
 
 
@@ -459,16 +453,11 @@ void Weather(int t1, int t2, char sign) {
 
   pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
   pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  //dots off
+	SetDots(0, 0);
+  
   pixels.show();
-#ifdef DEBUG_SERIAL
-  Serial.printf("Showing the weather for %d seconds\n", weathersecs);
-#endif
-
-  // pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
-  // pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
-  // pixels.show();
-  // Serial.printf("Showing the weather for %d seconds\n", weathersecs);
-
+  DEBUG_PRINTF("Showing the weather for %d seconds\n", weathersecs);
 }
 
 /*
@@ -478,8 +467,7 @@ void Weather(int t1, int t2, char sign) {
  * Called by function Weather
  * Parameters: temperature in °C
  */
-void GetWeatherColor(int temp)
-{
+void GetWeatherColor(int temp) {
 	int R = 255; int G = 255; int B = 255;
 	String hex = "";
 	if (temp < -40) {
@@ -599,10 +587,8 @@ void SetMode(char newtype)
 {
 	old_type = newtype;
 	type = newtype;
-#ifdef DEBUG_SERIAL
-	Serial.printf("Mode updated: %c\n", type);
-#endif
-	if (type == '0')Off();
+	DEBUG_PRINTF("Mode updated: %c\n", type);
+	if (type == '0') Off();
 	if (type == 'c') {
 		if (mymode2 != '*')DrawTime();
 		if (mymode2 != '*')DrawDots();
@@ -616,8 +602,7 @@ void SetMode(char newtype)
  * Parameters: fadevalue: final fade level, value 0-9
  * Note: untilize a switch statement in the next update instead of 10x if()
  */
-void SetFadeSpeed(int fadevalue)
-{
+void SetFadeSpeed(int fadevalue) {
 	if (fadevalue == 0) {
 		fadeamount = 1;
 		fadespeed = 1000;
@@ -674,8 +659,7 @@ void SetFadeSpeed(int fadevalue)
  * Called when mode is "d"
  * Parameters: state of the dots, 0 = off, 1 = on
  */
-void SetDots(int mydot1, int mydot2)
-{
+void SetDots(int mydot1, int mydot2) {
 	dot1 = mydot1;
 	dot2 = mydot2;
 	DrawDots();
@@ -689,8 +673,7 @@ void SetDots(int mydot1, int mydot2)
  * Called when mode is "e"
  * Parameters: none
  */
-void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2)
-{
+void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2) {
 	cdo[0] = r1;
 	cdo[1] = g1;
 	cdo[2] = b1;
@@ -711,8 +694,7 @@ void SetDotColors(int r1, int g1, int b1, int r2, int g2, int b2)
  * Called when dots state or color gets changed
  * Parameters: none
  */
-void DrawDots()
-{
+void DrawDots() {
 	if (dot1)pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
 	else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
 	if (dot2)pixels.setPixelColor(Digit3 - 2, pixels.Color(cdo[3], cdo[4], cdo[5]));
@@ -730,8 +712,7 @@ void DrawDots()
  * - g: green component (0-255)
  * - b: blue component (0-255)
  */
-void Set1DotColor(int dotnr, int r, int g, int b)
-{
+void Set1DotColor(int dotnr, int r, int g, int b) {
 	if (dotnr == 1)	{
 		cdo[0] = r;
 		cdo[1] = g;
@@ -762,8 +743,7 @@ void Set1DotColor(int dotnr, int r, int g, int b)
  * - g: green component (0-255)
  * - b: blue component (0-255)
  */
-void Set1Color(int mydigit, int r, int g, int b)
-{
+void Set1Color(int mydigit, int r, int g, int b) {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Setting digit: %d, r:%d g:%d b:%d\n", mydigit, r, g, b);
 #endif
@@ -839,8 +819,7 @@ void SetColors(int r1, int g1, int b1, int r2, int g2, int b2, int r3, int g3, i
  * Called when mode is "b"
  * Parameters: brightness (0-255)
  */
-void SetBrightness(int brightness)
-{
+void SetBrightness(int brightness) {
 	Serial.printf("Setting brightness to %d%%\n", brightness);
 	pixels.setBrightness(brightness);
 	type = old_type;
@@ -859,9 +838,13 @@ void SetBrightness(int brightness)
 void ModeClock() {
 	if ((millis() - timemillis) >= 1000) {
 		unsigned long minidiff = millis() - timemillis - 1000;
-		if (minidiff < 200)timemillis += 1000 + minidiff;
-		else timemillis += 1000;
-
+    //DEBUG_PRINTLN(minidiff);
+		if (minidiff < 200) {
+      timemillis += 1000 + minidiff;
+		} else {
+      timemillis += 1000;
+    }
+    
 		secs++;
 		if (secs >= 60) {
 			secs = 0;
@@ -871,51 +854,42 @@ void ModeClock() {
 				hours++;
 			}
 			if (hours >= 24) hours = 0;
-			// if (type == 'c') {
-				// if (mymode2 != '*') DrawTime();
-				// if (mymode2 != '*') DrawDots();
-				// pixels.show();
-			// }
-      
+			if (type == 'c') {
+				if (mymode2 != '*') DrawTime();
+				if (mymode2 != '*') DrawDots();
+				pixels.show();
+			}
 		}
 	}
-  if (type == 'w') {
-  } else {
-    if (secs%2 == 0) {
-      Set1Dot(0);
-      Set1Dot(2);
-    } else {
-      Set1Dot(1);
-      Set1Dot(3);
-    }
-  }
+  // if (type == 'c') {
+    // if (secs%2 == 0) {
+      // SetDots(1,1);
+    // } else {
+      // SetDots(0,0);
+    // }
+  // }
 }
 
 /*
- * Function: ModeClock
+ * Function: ModeTimerDyn
  * Updates the timer if the time difference to the last update exceeds 1 second
  * Called in the loop if mode is "t"
  * Parameters: none
  */
 void ModeTimerDyn()
 {
-	if (T_hours <= 0 && T_mins <= 0 && T_secs <= 0)type = '1';
-	else
-	{
-		if ((millis() - timermillis) >= 1000)
-		{
+	if (T_hours <= 0 && T_mins <= 0 && T_secs <= 0) type = '1';
+	else {
+		if ((millis() - timermillis) >= 1000)	{
 			unsigned long minidiff = millis() - timermillis - 1000;
 			if (minidiff < 200)timermillis += 1000 + minidiff;
 			else timermillis += 1000;
 			T_secs--;
-			if (T_secs < 0)
-			{
+			if (T_secs < 0) {
 				if (T_mins > 0 || T_hours > 0)T_secs = 59;
 				T_mins--;
-				if (T_mins <= 0)
-				{
-					if (T_hours > 0)
-					{
+				if (T_mins <= 0) {
+					if (T_hours > 0) {
 						T_mins = 59;
 						T_hours--;
 					}
@@ -934,13 +908,13 @@ void ModeTimerDyn()
  * Parameters: none
  */
 void ModeWeather() {
-	// if (mymode2 == '*') {
-		// DrawDigit(Digit1, ar, ag, ab, pt1);
-		// DrawDigit(Digit2, ar, ag, ab, pt2);
-	// }
+	if (mymode2 == '*') {
+		DrawDigit(Digit1, ar, ag, ab, pt1);
+		DrawDigit(Digit2, ar, ag, ab, pt2);
+	}
 	if (((millis() - weathermillis) / 1000) > weathersecs) {
 		DEBUG_PRINTLN("Setting mode back to Clock");
-
+    SetDots(1,1);
 		type = 'c';
 		if (mymode2 != '*')DrawTime();
 		if (mymode2 != '*')DrawDots();
@@ -954,21 +928,15 @@ void ModeWeather() {
  * Called when the timer runs out (mode is = "1")
  * Parameters: none
  */
-void TimerAlarm()
-{
-	if (alarmstate)
-	{
-		if ((millis() - timermillis) >= 350)
-		{
+void TimerAlarm() {
+	if (alarmstate)	{
+		if ((millis() - timermillis) >= 350) {
 			DEBUG_PRINTLN("ALARM!");
 			timermillis = millis();
 			alarmstate = 0; pixels.setBrightness(0); pixels.show();
 		}
-	}
-	else
-	{
-		if ((millis() - timermillis) >= 100)
-		{
+	}	else {
+		if ((millis() - timermillis) >= 100) {
 			DEBUG_PRINTLN("ALARM!");
 			timermillis = millis();
 			alarmstate = 1; pixels.setBrightness(255);
@@ -993,22 +961,16 @@ void TimerAlarm()
  * Called when mode is "!"
  * Parameters: none
  */
-void Alarm()
-{
-	if (alarmstate)
-	{
-		if ((millis() - timermillis) >= 350)
-		{
+void Alarm(){
+	if (alarmstate)	{
+		if ((millis() - timermillis) >= 350) {
 			DEBUG_PRINTLN("ALARM!");
 
 			timermillis = millis();
 			alarmstate = 0; pixels.setBrightness(0); pixels.show();
 		}
-	}
-	else
-	{
-		if ((millis() - timermillis) >= 100)
-		{
+	} else {
+		if ((millis() - timermillis) >= 100) {
 			DEBUG_PRINTLN("ALARM!");
 
 			timermillis = millis();
@@ -1067,21 +1029,17 @@ void ModeFade()
  * Called in loop when mode is "w"
  * Parameters: none
  */
-void DrawTimer()
-{
+void DrawTimer() {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Updating Timer: %d:%d:%d\n", T_hours, T_mins, T_secs);
 #endif
-	if (T_hours > 0)
-	{
+	if (T_hours > 0) {
 		DrawDigit(Digit1, cd[0], cd[1], cd[2], T_hours / 10);
 		DrawDigit(Digit2, cd[3], cd[4], cd[5], T_hours - ((T_hours / 10) * 10));
 
 		DrawDigit(Digit3, cd[6], cd[7], cd[8], T_mins / 10);
 		DrawDigit(Digit4, cd[9], cd[10], cd[11], T_mins - ((T_mins / 10) * 10));
-	}
-	else
-	{
+	} else {
 		DrawDigit(Digit1, cd[0], cd[1], cd[2], T_mins / 10);
 		DrawDigit(Digit2, cd[3], cd[4], cd[5], T_mins - ((T_mins / 10) * 10));
 
@@ -1210,9 +1168,7 @@ void DisableDigit(int mydigit)
  * - b: blue component (0-255)
  * - n: value to be drawn (0-9)
  */
-void DrawDigit(int offset, int r, int g, int b, int n)
-{
-
+void DrawDigit(int offset, int r, int g, int b, int n) {
 	if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) //MIDDLE
 	{
 		pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
@@ -1280,40 +1236,40 @@ void DrawDigit(int offset, int r, int g, int b, int n)
  */
 void ShiftAlarmLeds(int amount)
 {
-	if (ad == 0)
-	{
-		ag = ag - amount; ab = ab - amount; if (ag <= 0 && ab <= 0)ad++; if (ag < 0) {
+	if (ad == 0) {
+		ag = ag - amount; ab = ab - amount; 
+    if (ag <= 0 && ab <= 0)ad++; if (ag < 0) {
 			ag = 0;
 			ab = 0;
 		}
 	}
-	if (ad == 1)
-	{
-		ag = ag + amount; if (ag >= 255)ad++; if (ag > 255)ag = 255;
+	if (ad == 1) {
+		ag = ag + amount; if (ag >= 255)ad++; 
+    if (ag > 255)ag = 255;
 	}
-	if (ad == 2)
-	{
-		ar = ar - amount; if (ar <= 0)ad++; if (ar < 0)ar = 0;
+	if (ad == 2) {
+		ar = ar - amount; if (ar <= 0)ad++; 
+    if (ar < 0)ar = 0;
 	}
-	if (ad == 3)
-	{
-		ab = ab + amount; if (ab >= 255)ad++; if (ab > 255)ab = 255;
+	if (ad == 3) {
+		ab = ab + amount; if (ab >= 255)ad++; 
+    if (ab > 255)ab = 255;
 	}
-	if (ad == 4)
-	{
-		ag = ag - amount; if (ag <= 0)ad++; if (ag < 0)ag = 0;
+	if (ad == 4) {
+		ag = ag - amount; if (ag <= 0)ad++; 
+    if (ag < 0)ag = 0;
 	}
-	if (ad == 5)
-	{
-		ar = ar + amount; if (ar >= 255)ad++; if (ar > 255)ar = 255;
+	if (ad == 5) {
+		ar = ar + amount; if (ar >= 255)ad++; 
+    if (ar > 255)ar = 255;
 	}
-	if (ad == 6)
-	{
-		ab = ab - amount; if (ab <= 0)ad++; if (ab < 0)ab = 0;
+	if (ad == 6) {
+		ab = ab - amount; if (ab <= 0)ad++; 
+    if (ab < 0)ab = 0;
 	}
-	if (ad == 7)
-	{
-		ab = ab + amount; ag = ag + amount; if (ab >= 255)ad = 0; if (ab > 255) {
+	if (ad == 7) {
+		ab = ab + amount; ag = ag + amount; 
+    if (ab >= 255)ad = 0; if (ab > 255) {
 			ab = 255;
 			ag = 255;
 		}
@@ -1503,32 +1459,27 @@ void setup()
 
 #ifdef STARTUP_ANIMATION
 	// Startup animation
-	for (int i = 0; i < NUMPIXELS; i++)
-	{
+	for (int i = 0; i < NUMPIXELS; i++)	{
 		pixels.setPixelColor(i, pixels.Color(255, 0, 0));
 		pixels.show();
 		delay(10);
 	}
-	for (int i = 0; i < NUMPIXELS; i++)
-	{
+	for (int i = 0; i < NUMPIXELS; i++)	{
 		pixels.setPixelColor(i, pixels.Color(0, 255, 0));
 		pixels.show();
 		delay(10);
 	}
-	for (int i = 0; i < NUMPIXELS; i++)
-	{
+	for (int i = 0; i < NUMPIXELS; i++)	{
 		pixels.setPixelColor(i, pixels.Color(0, 0, 255));
 		pixels.show();
 		delay(10);
 	}
-	for (int i = 0; i < NUMPIXELS; i++)
-	{
+	for (int i = 0; i < NUMPIXELS; i++)	{
 		pixels.setPixelColor(i, pixels.Color(255, 255, 255));
 		pixels.show();
 		delay(10);
 	}
-	for (int i = 0; i < NUMPIXELS; i++)
-	{
+	for (int i = 0; i < NUMPIXELS; i++)	{
 		pixels.setPixelColor(i, pixels.Color(0, 0, 0));
 		pixels.show();
 		delay(10);
