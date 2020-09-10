@@ -1,23 +1,22 @@
 #include <Adafruit_NeoPixel.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
+#include <WiFiManager.h> 
 
 /* ----------------------------------------------SETTINGS---------------------------------------------- */
-const char* ssid = "Datlovo";                  // Your WiFi SSID
-const char* password = "Nu6kMABmseYwbCoJ7LyG";           // Your WiFi password
-const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Raspberry Pi
+static const char* const      mqtt_server                    = "192.168.1.56";
+static const uint16_t         mqtt_port                      = 1883;
+static const char* const      static_ip                      = "192.168.1.53";
+static const char* const      static_gw                      = "192.168.1.1";
+static const char* const      static_sn                      = "255.255.255.0";
+static const char* const      mqtt_topic_restart             = "restart";
+static const char* const      mqtt_username                  = "datel";
+static const char* const      mqtt_key                       = "hanka12";
+static const char* const      mqtt_base                      = "Clock";
+static const char* const      mqtt_request_topic             = "request_Clock";
+
 
 #define STARTUP_BRIGHTNESS 30	// Brightness that the clock is using after startup (0-255)
-
-#define mqtt_auth 1           // Set this to 0 to disable authentication
-#define mqtt_user "datel"      // Username for mqtt, not required if auth is disabled
-#define mqtt_password "hanka12" // Password for mqtt, not required if auth is disabled
-
-#define device_name "Clock"	// this is the hostname of the clock
-
-#define mqtt_topic "Clock"    // here you have to set the topic for mqtt control
-#define mqtt_request_topic "request_Clock"	// here you have to set the topic for mqtt request, this is used that the clock gets the time on startup/reconnecting
 
 #define PIN D4                // Pin of the led strip, default 2 (that is D4 on the wemos)
 
@@ -51,7 +50,32 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
   #define DEBUG_PRINTLN(x)
 #endif 
 
+
+uint32_t heartBeat                          = 0;
+
 /* ----------------------------------------------SETTINGS END---------------------------------------------- */
+
+//for LED status
+#include <Ticker.h>
+Ticker ticker;
+
+void tick()
+{
+  //toggle state
+  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
+  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+}
+
+//gets called when WiFiManager enters configuration mode
+void configModeCallback (WiFiManager *myWiFiManager) {
+  DEBUG_PRINTLN("Entered config mode");
+  DEBUG_PRINTLN(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  DEBUG_PRINTLN(myWiFiManager->getConfigPortalSSID());
+  //entered config mode, make led toggle faster
+  ticker.attach(0.2, tick);
+}
+
 
 
 /* ----------------------------------------------GLOBALS---------------------------------------------- */
@@ -181,70 +205,55 @@ void ExtractValues(int startindex, int valuecount)
 void CallMode(char mymode)
 {
 	type = mymode;
-	if (mymode == '!')Alarm();        // !
-	else if (mymode == '0')Off();          // 0
-	else if (mymode == '#') { mymode2 = '0'; type = old_type; }			// #
-	else if (mymode == 'd')SetDots(receivedChars[2] - '0', receivedChars[4] - '0');      // d;1;0
-	else if (mymode == 'i')Set1Dot(receivedChars[2] - '0');      // i;1
-	else if (mymode == 'a')SetMode(receivedChars[2]);      // a;c
-	else if (mymode == 'w') {
+	if (mymode == '!') Alarm();        // !
+	else if (mymode == '0') {
+    Off();          // 0
+  } else if (mymode == '#') {
+    mymode2 = '0'; type = old_type; 
+  }	else if (mymode == 'd') {
+    SetDots(receivedChars[2] - '0', receivedChars[4] - '0');      // d;1;0
+	} else if (mymode == 'i') {
+    Set1Dot(receivedChars[2] - '0');      // i;1
+	} else if (mymode == 'a') {
+    SetMode(receivedChars[2]);      // a;c
+	} else if (mymode == 'w') {
     weathersecs = (int)(receivedChars[8] - '0') * 10 + (int)(receivedChars[10] - '0');
     Weather(receivedChars[2] - '0', receivedChars[4] - '0', receivedChars[6]);      // w;1;9;+;1;5
-  }	else if (mymode == 'z')CustomValues(receivedChars[2] - '0', receivedChars[4] - '0', receivedChars[6] - '0', receivedChars[8] - '0'); // z;0;2;0;4
-	else if (mymode == 'x')
-	{
+  }	else if (mymode == 'z') {
+    CustomValues(receivedChars[2] - '0', receivedChars[4] - '0', receivedChars[6] - '0', receivedChars[8] - '0'); // z;0;2;0;4
+	} else if (mymode == 'x')	{
 		ExtractValues(2, 3);
 		SetGeneralColor(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-	}
-	else if (mymode == 's')      // s;2;2;5;8;2;2
-	{
+	}	else if (mymode == 's') {     // s;2;2;5;8;2;2
 		int h = 10 * (receivedChars[2] - '0') + (receivedChars[4] - '0');
 		int m = 10 * (receivedChars[6] - '0') + (receivedChars[8] - '0');
 		int s = 10 * (receivedChars[10] - '0') + (receivedChars[12] - '0');
 		SetTime(h, m, s);
-	}
-	else if (mymode == 'e')		// e;255;0;0;0;255;0
-	{
+	}	else if (mymode == 'e')	{	// e;255;0;0;0;255;0
 		ExtractValues(2, 6);
 		SetDotColors(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]), atoi(vals[3]), atoi(vals[4]), atoi(vals[5]));
-	}
-	else if (mymode == 'h')// h;1;255;0;0
-	{
+	}	else if (mymode == 'h') { // h;1;255;0;0 - nastavi barvu tecek
 		ExtractValues(4, 3);
 		Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-	}
-
-	else if (mymode == 'f')    // f;1;8;255;34
-	{
+	}	else if (mymode == 'f') { // f;1;8;255;34 - nastavi barvu cislic
 		ExtractValues(4, 3);
 		Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-	}
-	else if (mymode == 'g')    // g;255;10;3;100;255;200;255;10;3;100;255;200
-	{
+	} else if (mymode == 'g') {   // g;255;10;3;100;255;200;255;10;3;100;255;200
 		ExtractValues(2, 12);
 		SetColors(atoi(vals[0]), atoi(vals[1]), atoi(vals[2]), atoi(vals[3]), atoi(vals[4]), atoi(vals[5]), atoi(vals[6]), atoi(vals[7]), atoi(vals[8]), atoi(vals[9]), atoi(vals[10]), atoi(vals[11]));
-	}
-
-	else if (mymode == 't')				  // t;01;15;30
-	{
+	}	else if (mymode == 't')	{			  // t;01;15;30
 		int timer_h = (receivedChars[2] - '0') * 10 + receivedChars[3] - '0';
 		int timer_m = (receivedChars[5] - '0') * 10 + receivedChars[6] - '0';
 		int timer_s = (receivedChars[8] - '0') * 10 + receivedChars[9] - '0';
 		SetTimerDyn(timer_h, timer_m, timer_s);
-	}
-	else if (mymode == 'b')		//b;80
-	{
+	}	else if (mymode == 'b')	{	//b;80
 		ExtractValues(2, 1);
 		SetBrightness(atoi(vals[0]));
-	}
-	else if (mymode == '*')
-	{
+	} else if (mymode == '*')	{
 		mymode2 = '*';
 		SetFadeSpeed(receivedChars[2] - '0');
-	}
-	else if (mymode == '*' || mymode == '#' || mymode == '0' || mymode == '!')ResetAlarmLeds();
-	else
-	{
+	}	else if (mymode == '*' || mymode == '#' || mymode == '0' || mymode == '!')ResetAlarmLeds();
+	else 	{
 		DEBUG_PRINT("Mode did not match: "); DEBUG_PRINTLN(mymode);
 		type = old_type;
 	}
@@ -319,7 +328,7 @@ void displayData()
 void GetMode()
 {
 	old_type = type;
-	if (old_type == '0' || old_type == '!')pixels.setBrightness(40);
+	if (old_type == '0' || old_type == '!') pixels.setBrightness(40);
 	type = receivedChars[0];
 }
 
@@ -533,8 +542,7 @@ void Off()
  *   - 2 == Dot2 off
  *   - 3 == Dot2 on
  */
-void Set1Dot(int dotcode)
-{
+void Set1Dot(int dotcode) {
 	if (dotcode == 0) {
 		pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
 		dot1 = 0;
@@ -553,7 +561,7 @@ void Set1Dot(int dotcode)
 	}
 	DrawDots();
 	pixels.show();
-	type = old_type;
+	//type = old_type;
 }
 
 
@@ -724,23 +732,22 @@ void DrawDots()
  */
 void Set1DotColor(int dotnr, int r, int g, int b)
 {
-	if (dotnr == 1)
-	{
+	if (dotnr == 1)	{
 		cdo[0] = r;
 		cdo[1] = g;
 		cdo[2] = b;
 	}
-	if (dotnr == 2)
-	{
+	if (dotnr == 2)	{
 		cdo[3] = r;
 		cdo[4] = g;
 		cdo[5] = b;
 	}
 	Serial.printf("Setting Dot Color of %d", dotnr);
+  DEBUG_PRINTLN();
 	DrawDots();
 	if (type == 'c') DrawTime();
 	else if (type == 't') DrawTimer();
-	else if (type == 'z')CustomValues(cv1, cv2, cv3, cv4);
+	else if (type == 'z') CustomValues(cv1, cv2, cv3, cv4);
 	type = old_type;
 	pixels.show();
 }
@@ -849,10 +856,8 @@ void SetBrightness(int brightness)
  * Called in the loop
  * Parameters: none
  */
-void ModeClock()
-{
-	if ((millis() - timemillis) >= 1000)
-	{
+void ModeClock() {
+	if ((millis() - timemillis) >= 1000) {
 		unsigned long minidiff = millis() - timemillis - 1000;
 		if (minidiff < 200)timemillis += 1000 + minidiff;
 		else timemillis += 1000;
@@ -866,14 +871,24 @@ void ModeClock()
 				hours++;
 			}
 			if (hours >= 24) hours = 0;
-			if (type == 'c')
-			{
-				if (mymode2 != '*')DrawTime();
-				if (mymode2 != '*')DrawDots();
-				pixels.show();
-			}
+			// if (type == 'c') {
+				// if (mymode2 != '*') DrawTime();
+				// if (mymode2 != '*') DrawDots();
+				// pixels.show();
+			// }
+      
 		}
 	}
+  if (type == 'w') {
+  } else {
+    if (secs%2 == 0) {
+      Set1Dot(0);
+      Set1Dot(2);
+    } else {
+      Set1Dot(1);
+      Set1Dot(3);
+    }
+  }
 }
 
 /*
@@ -918,13 +933,11 @@ void ModeTimerDyn()
  * Called in the loop if mode is "w"
  * Parameters: none
  */
-void ModeWeather()
-{
-	if (mymode2 == '*')
-	{
-		DrawDigit(Digit1, ar, ag, ab, pt1);
-		DrawDigit(Digit2, ar, ag, ab, pt2);
-	}
+void ModeWeather() {
+	// if (mymode2 == '*') {
+		// DrawDigit(Digit1, ar, ag, ab, pt1);
+		// DrawDigit(Digit2, ar, ag, ab, pt2);
+	// }
 	if (((millis() - weathermillis) / 1000) > weathersecs) {
 		DEBUG_PRINTLN("Setting mode back to Clock");
 
@@ -1110,8 +1123,7 @@ void CustomValues(int d1, int d2, int d3, int d4)
  * Called in loop when mode is "w"
  * Parameters: none
  */
-void DrawTime()
-{
+void DrawTime() {
 #ifdef DEBUG_SERIAL
 	Serial.printf("Updating Time: %d:%d:%d\n", hours, mins, secs);
 #endif
@@ -1325,37 +1337,58 @@ void RequestTimeUpdate()
 
 /* ----------------------------------------------COMMUNICATION---------------------------------------------- */
 void reconnect() {
-	while (!client.connected()) {
-		DEBUG_PRINT("Attempting MQTT connection...");
-		if (mqtt_auth == 1)
-		{
-			if (client.connect(device_name, mqtt_user, mqtt_password)) {
-				DEBUG_PRINTLN("connected");
-				client.subscribe(mqtt_topic);
-			}
-			else {
-				DEBUG_PRINT(client.state());
-				DEBUG_PRINTLN(" try again in 5 seconds");
-				DEBUG_PRINT("failed, rc=");
-				delay(5000);
-			}
-		}
-		else
-		{
-			if (client.connect(device_name)) {
-				DEBUG_PRINTLN("connected");
-				client.subscribe(mqtt_topic);
-			}
-			else {
-				DEBUG_PRINT(client.state());
-				DEBUG_PRINTLN(" try again in 5 seconds");
-				DEBUG_PRINT("failed, rc=");
-				delay(5000);
-			}
-		}
-	}
-	RequestTimeUpdate();
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    DEBUG_PRINT("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
+      DEBUG_PRINTLN("connected");
+			client.subscribe(mqtt_base);
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str());
+      RequestTimeUpdate();
+    } else {
+      DEBUG_PRINT("failed, rc=");
+      DEBUG_PRINT(client.state());
+      DEBUG_PRINTLN(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
+
+
+// void reconnect() {
+	// while (!client.connected()) {
+		// DEBUG_PRINT("Attempting MQTT connection...");
+		// if (mqtt_auth == 1)
+		// {
+			// if (client.connect(device_name, mqtt_user, mqtt_password)) {
+				// DEBUG_PRINTLN("connected");
+				// client.subscribe(mqtt_topic);
+			// }
+			// else {
+				// DEBUG_PRINT(client.state());
+				// DEBUG_PRINTLN(" try again in 5 seconds");
+				// DEBUG_PRINT("failed, rc=");
+				// delay(5000);
+			// }
+		// }
+		// else
+		// {
+			// if (client.connect(device_name)) {
+				// DEBUG_PRINTLN("connected");
+				// client.subscribe(mqtt_topic);
+			// }
+			// else {
+				// DEBUG_PRINT(client.state());
+				// DEBUG_PRINTLN(" try again in 5 seconds");
+				// DEBUG_PRINT("failed, rc=");
+				// delay(5000);
+			// }
+		// }
+	// }
+	// RequestTimeUpdate();
+// }
 /* ----------------------------------------------COMUNICATION END---------------------------------------------- */
 
 /* ----------------------------------------------MQTT CALLBACK---------------------------------------------- */
@@ -1384,26 +1417,57 @@ void setup()
  // pinMode(3, FUNCTION_3); 
 //**************************************************
   
-	SERIAL_BEGIN(115200);
-	DEBUG_PRINTLN();
-	DEBUG_PRINTLN("Clock is booting up!");
-	client.setServer(mqtt_server, 1883);
-	client.setCallback(callback);
-	// Wait until the connection has been confirmed before continuing
-	DEBUG_PRINT("Connecting to ");
-	DEBUG_PRINTLN(ssid);
+  SERIAL_BEGIN(115200);
+  DEBUG_PRINTLN();
+  DEBUG_PRINTLN("Clock is booting up!");
+  
+  WiFi.printDiag(Serial);
+  
+  rst_info *_reset_info = ESP.getResetInfoPtr();
+  uint8_t _reset_reason = _reset_info->reason;
+  DEBUG_PRINT("Boot-Mode: ");
+  DEBUG_PRINTLN(_reset_reason);
+  heartBeat = _reset_reason;
+  /*
+  REASON_DEFAULT_RST             = 0      normal startup by power on 
+  REASON_WDT_RST                 = 1      hardware watch dog reset 
+  REASON_EXCEPTION_RST           = 2      exception reset, GPIO status won't change 
+  REASON_SOFT_WDT_RST            = 3      software watch dog reset, GPIO status won't change 
+  REASON_SOFT_RESTART            = 4      software restart ,system_restart , GPIO status won't change 
+  REASON_DEEP_SLEEP_AWAKE        = 5      wake up from deep-sleep 
+  REASON_EXT_SYS_RST             = 6      external system reset 
+  */
+  
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 
-	WiFi.begin(ssid, password);
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		DEBUG_PRINT(".");
-	}
+	WiFiManager wifiManager;
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+  
+  IPAddress _ip,_gw,_sn;
+  _ip.fromString(static_ip);
+  _gw.fromString(static_gw);
+  _sn.fromString(static_sn);
 
-	// Debugging - Output the IP Address of the ESP8266
-	DEBUG_PRINTLN("WiFi connected");
-	DEBUG_PRINT("IP address: ");
-	DEBUG_PRINTLN(WiFi.localIP());
-	delay(1000);
+  wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  
+  DEBUG_PRINTLN(_ip);
+  DEBUG_PRINTLN(_gw);
+  DEBUG_PRINTLN(_sn);
+
+  //wifiManager.setConfigPortalTimeout(60); 
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wifiManager.setAPCallback(configModeCallback);
+
+  if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
+    DEBUG_PRINTLN("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  } 
+
 	DEBUG_PRINTLN("Clock is now ready!");
 
 
@@ -1487,13 +1551,15 @@ void loop()
 		reconnect();
 	}
 	client.loop();
+  
 	ModeClock();
-	if (mqttdata > 0)serialNew();
-	else if (type == 't')ModeTimerDyn();
-	else if (type == 'w')ModeWeather();
-	else if (type == '1')TimerAlarm();
-	else if (type == '!')Alarm();
-	if (mymode2 == '*')ModeFade();
+  
+	if (mqttdata > 0) serialNew();
+	else if (type == 't') ModeTimerDyn();
+	else if (type == 'w') ModeWeather();
+	else if (type == '1') TimerAlarm();
+	else if (type == '!') Alarm();
+	if (mymode2 == '*') ModeFade();
   
 #ifdef ota
   ArduinoOTA.handle();
