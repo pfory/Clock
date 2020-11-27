@@ -1,12 +1,23 @@
 #include <Adafruit_NeoPixel.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
 
 /* ----------------------------------------------SETTINGS---------------------------------------------- */
-const char* ssid = "Datlovo";                  // Your WiFi SSID
-const char* password = "Nu6kMABmseYwbCoJ7LyG";           // Your WiFi password
-const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Raspberry Pi
+//const char* ssid = "Datlovo";                  // Your WiFi SSID
+//const char* password = "Nu6kMABmseYwbCoJ7LyG";           // Your WiFi password
+
+static const char* const      mqtt_server                    = "192.168.1.56";
+static const uint16_t         mqtt_port                      = 1883;
+static const char* const      mqtt_username                  = "datel";
+static const char* const      mqtt_key                       = "hanka12";
+static const char* const      mqtt_base                      = "Clock";
+static const char* const      static_ip                      = "192.168.1.109";
+static const char* const      static_gw                      = "192.168.1.1";
+static const char* const      static_sn                      = "255.255.255.0";
+
+
 
 #define STARTUP_BRIGHTNESS 30	// Brightness that the clock is using after startup (0-255)
 
@@ -14,7 +25,7 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 #define mqtt_user "datel"      // Username for mqtt, not required if auth is disabled
 #define mqtt_password "hanka12" // Password for mqtt, not required if auth is disabled
 
-#define device_name "Clock"	// this is the hostname of the clock
+//#define device_name "Clock"	// this is the hostname of the clock
 
 #define mqtt_topic "Clock"    // here you have to set the topic for mqtt control
 #define mqtt_request_topic "request_Clock"	// here you have to set the topic for mqtt request, this is used that the clock gets the time on startup/reconnecting
@@ -52,7 +63,6 @@ const char* mqtt_server = "192.168.1.56";    // Enter the IP-Address of your Ras
 #endif 
 
 /* ----------------------------------------------SETTINGS END---------------------------------------------- */
-
 
 /* ----------------------------------------------GLOBALS---------------------------------------------- */
 WiFiClient espClient;
@@ -142,6 +152,26 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ80
 
 
 /* ----------------------------------------------FUNCTIONS START---------------------------------------------- */
+
+//for LED status
+#include <Ticker.h>
+Ticker ticker;
+
+void tick() {
+  //toggle state
+  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
+  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+}
+
+//gets called when WiFiManager enters configuration mode
+void configModeCallback (WiFiManager *myWiFiManager) {
+  DEBUG_PRINTLN("Entered config mode");
+  DEBUG_PRINTLN(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  DEBUG_PRINTLN(myWiFiManager->getConfigPortalSSID());
+  //entered config mode, make led toggle faster
+  ticker.attach(0.2, tick);
+}
 
 
 /*
@@ -1324,38 +1354,29 @@ void RequestTimeUpdate()
 /* ----------------------------------------------FUNCTIONS END---------------------------------------------- */
 
 /* ----------------------------------------------COMMUNICATION---------------------------------------------- */
+  
 void reconnect() {
-	while (!client.connected()) {
-		DEBUG_PRINT("Attempting MQTT connection...");
-		if (mqtt_auth == 1)
-		{
-			if (client.connect(device_name, mqtt_user, mqtt_password)) {
-				DEBUG_PRINTLN("connected");
-				client.subscribe(mqtt_topic);
-			}
-			else {
-				DEBUG_PRINT(client.state());
-				DEBUG_PRINTLN(" try again in 5 seconds");
-				DEBUG_PRINT("failed, rc=");
-				delay(5000);
-			}
-		}
-		else
-		{
-			if (client.connect(device_name)) {
-				DEBUG_PRINTLN("connected");
-				client.subscribe(mqtt_topic);
-			}
-			else {
-				DEBUG_PRINT(client.state());
-				DEBUG_PRINTLN(" try again in 5 seconds");
-				DEBUG_PRINT("failed, rc=");
-				delay(5000);
-			}
-		}
-	}
-	RequestTimeUpdate();
+// Loop until we're reconnected
+while (!client.connected()) {
+  DEBUG_PRINT("Attempting MQTT connection...");
+  // Attempt to connect
+  if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
+    DEBUG_PRINTLN("connected");
+    // Once connected, publish an announcement...
+    client.subscribe(mqtt_topic);
+  } else {
+    DEBUG_PRINT("failed, rc=");
+    DEBUG_PRINT(client.state());
+    DEBUG_PRINTLN(" try again in 5 seconds");
+    // Wait 5 seconds before retrying
+    delay(5000);
+  }
 }
+RequestTimeUpdate();
+
+}
+
+  
 /* ----------------------------------------------COMUNICATION END---------------------------------------------- */
 
 /* ----------------------------------------------MQTT CALLBACK---------------------------------------------- */
@@ -1387,17 +1408,49 @@ void setup()
 	SERIAL_BEGIN(115200);
 	DEBUG_PRINTLN();
 	DEBUG_PRINTLN("Clock is booting up!");
-	client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, mqtt_port);
 	client.setCallback(callback);
-	// Wait until the connection has been confirmed before continuing
-	DEBUG_PRINT("Connecting to ");
-	DEBUG_PRINTLN(ssid);
+  
+   WiFiManager wifiManager;
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+  //wifiManager.setConnectTimeout(60); //5min
 
-	WiFi.begin(ssid, password);
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		DEBUG_PRINT(".");
-	}
+  IPAddress _ip,_gw,_sn;
+  _ip.fromString(static_ip);
+  _gw.fromString(static_gw);
+  _sn.fromString(static_sn);
+
+  wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  
+  DEBUG_PRINTLN(_ip);
+  DEBUG_PRINTLN(_gw);
+  DEBUG_PRINTLN(_sn);
+
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wifiManager.setAPCallback(configModeCallback);
+  
+  //DEBUG_PRINTLN(ESP.getFlashChipRealSize);
+  //DEBUG_PRINTLN(ESP.getCpuFreqMHz);
+  //WiFi.begin(ssid, password);
+  
+  if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
+    DEBUG_PRINTLN("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  } 
+  
+	// Wait until the connection has been confirmed before continuing
+	// DEBUG_PRINT("Connecting to ");
+	// DEBUG_PRINTLN(ssid);
+
+	// WiFi.begin(ssid, password);
+	// while (WiFi.status() != WL_CONNECTED) {
+		// delay(500);
+		// DEBUG_PRINT(".");
+	// }
 
 	// Debugging - Output the IP Address of the ESP8266
 	DEBUG_PRINTLN("WiFi connected");
