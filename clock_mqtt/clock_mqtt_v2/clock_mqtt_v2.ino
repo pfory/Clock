@@ -30,7 +30,7 @@ static const char* const      static_sn                      = "255.255.255.0";
 #define mqtt_topic "Clock"    // here you have to set the topic for mqtt control
 #define mqtt_request_topic "request_Clock"	// here you have to set the topic for mqtt request, this is used that the clock gets the time on startup/reconnecting
 
-#define PIN D4                // Pin of the led strip, default 2 (that is D4 on the wemos)
+#define PIN 5                // Pin of the led strip, default 2 (that is D4 on the wemos)
 
 // uncomment the line below to enable the startup animation
 #define STARTUP_ANIMATION
@@ -1395,8 +1395,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 /* ----------------------------------------------MQTT CALLBACK END---------------------------------------------- */
 
 /* ----------------------------------------------SETUP---------------------------------------------- */
-void setup()
-{
+void setup() {
   
   //********** CHANGE PIN FUNCTION  TO GPIO **********
 //GPIO 1 (TX) swap the pin to a GPIO.
@@ -1410,7 +1409,10 @@ void setup()
 	DEBUG_PRINTLN("Clock is booting up!");
   client.setServer(mqtt_server, mqtt_port);
 	client.setCallback(callback);
+  pinMode(BUILTIN_LED, OUTPUT);
   
+  ticker.attach(1, tick);
+
    WiFiManager wifiManager;
   //reset settings - for testing
   //wifiManager.resetSettings();
@@ -1528,6 +1530,13 @@ void setup()
 	SetDots(1, 1);
 	SetBrightness(STARTUP_BRIGHTNESS);
 	type = 'c';
+  
+  ticker.detach();
+  //keep LED on
+  digitalWrite(BUILTIN_LED, HIGH);
+  
+  DEBUG_PRINTLN(F("Setup end."));
+
 }
 /* ----------------------------------------------SETUP END---------------------------------------------- */
 
