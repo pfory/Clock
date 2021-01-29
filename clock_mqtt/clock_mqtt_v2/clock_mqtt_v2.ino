@@ -13,22 +13,14 @@ static const uint16_t         mqtt_port                      = 1883;
 static const char* const      mqtt_username                  = "datel";
 static const char* const      mqtt_key                       = "hanka12";
 static const char* const      mqtt_base                      = "Clock";
-static const char* const      static_ip                      = "192.168.1.109";
+static const char* const      mqtt_topic                     = "Clock";
+static const char* const      mqtt_request_topic             = "request_Clock";
+static const char* const      static_ip                      = "192.168.1.112";
 static const char* const      static_gw                      = "192.168.1.1";
 static const char* const      static_sn                      = "255.255.255.0";
 
 
-
 #define STARTUP_BRIGHTNESS 30	// Brightness that the clock is using after startup (0-255)
-
-#define mqtt_auth 1           // Set this to 0 to disable authentication
-#define mqtt_user "datel"      // Username for mqtt, not required if auth is disabled
-#define mqtt_password "hanka12" // Password for mqtt, not required if auth is disabled
-
-//#define device_name "Clock"	// this is the hostname of the clock
-
-#define mqtt_topic "Clock"    // here you have to set the topic for mqtt control
-#define mqtt_request_topic "request_Clock"	// here you have to set the topic for mqtt request, this is used that the clock gets the time on startup/reconnecting
 
 #define PIN 5                // Pin of the led strip, default 2 (that is D4 on the wemos)
 
