@@ -16,7 +16,8 @@ const uint8_t SEG_DEG[] = {
 
 int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
 unsigned char ClockPoint                    = 1;
-uint32_t heartBeat                          = 0;
+uint32_t      heartBeat                     = 0;
+float         temperature                   = -55;
 
 TM1637Display tm1637(CLK,DIO);
 
@@ -32,17 +33,17 @@ time_t getNtpTime();
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
+
 //for LED status
 Ticker ticker;
 
-void tick()
-{
+void tick() {
   //toggle state
   int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
   digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
 }
 
-DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 ADC_MODE(ADC_VCC);
 
@@ -72,8 +73,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, mqtt_topic_weather)==0) {
     DEBUG_PRINT("Temperature from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
-    
-    showTemperature(val.toFloat());
+    temperature = val.toFloat();
+
     // showTemperature(-12);
     // showTemperature(-9);
     // showTemperature(-1);
@@ -97,10 +98,7 @@ void setup() {
   DEBUG_PRINT(F(SW_NAME));
   DEBUG_PRINT(F(" "));
   DEBUG_PRINTLN(F(VERSION));
- 
-  tm1637.setBrightness(BRIGHTNESS);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
-  tm1637.showNumberDecEx(8888, 0b11100000, true, 4, 0);
- 
+
   pinMode(BUILTIN_LED, OUTPUT);
   ticker.attach(1, tick);
 
@@ -155,15 +153,7 @@ void setup() {
   
   sendNetInfoMQTT();
   
-  IPAddress ip = WiFi.localIP();
-
-  //show ip on display
-  for (byte i=0; i<4; i++) {
-    dispIP(ip, i);
-    delay(500);
-  }
-  
-  #ifdef time
+#ifdef time
   DEBUG_PRINTLN("Setup TIME");
   EthernetUdp.begin(localPort);
   DEBUG_PRINT("Local port: ");
@@ -199,18 +189,31 @@ void setup() {
   ArduinoOTA.begin();
 #endif
 
-  tm1637.setSegments(SEG_DONE);
-  delay(1000);
-  
-  timer.every(500, TimingISR);
-  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
-  
-  DEBUG_PRINTLN(" Ready");
- 
+  IPAddress ip = WiFi.localIP();
+
   ticker.detach();
   //keep LED on
   digitalWrite(BUILTIN_LED, HIGH);
 
+  tm1637.setBrightness(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  tm1637.showNumberDecEx(8888, 0b11100000, true, 4, 0);
+
+  //show ip on display
+  for (byte i=0; i<4; i++) {
+    dispIP(ip, i);
+    delay(500);
+  }
+
+  tm1637.setSegments(SEG_DONE);
+  delay(1000);
+
+  timer.every(500, TimingISR);
+  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+  timer.every(SHOWTEMP_DELAY, showTemperature);
+
+    
+  DEBUG_PRINTLN(" Ready");
+ 
   drd.stop();
 
   DEBUG_PRINTLN(F("Setup end."));
@@ -232,9 +235,7 @@ void loop()
 bool TimingISR(void *) {
   //printSystemTime();
   int t = hour() * 100 + minute();
-  
-  //tm1637.clear();
-  //DEBUG_PRINTLN(ClockPoint);
+
   if(ClockPoint) {
     tm1637.showNumberDecEx(t, 0, true, 4, 0);
   } else {
@@ -364,7 +365,11 @@ void reconnect() {
   }
 }
 
-void showTemperature(float val) {
+bool showTemperature(void *) {
+  if (temperature==-55) {
+    return true;
+  }
+  
   tm1637.clear();
   // 10°
   //  5°
@@ -372,14 +377,13 @@ void showTemperature(float val) {
   // -1°
   //-10°
   // void TM1637Display::showNumberDec(int num, bool leading_zero, uint8_t length, uint8_t pos)
-  int t = round(val);
+  int t = round(temperature);
 
-
-  if (val<=-10.f) {
+  if (temperature<=-10.f) {
     tm1637.showNumberDec(t, false, 3, 0);
-  } else if (val>-10.f && val<=0.f) {
+  } else if (temperature>-10.f && temperature<=0.f) {
     tm1637.showNumberDec(t, false, 2, 1);
-  } else if (val>0.f && val<=10.f) {
+  } else if (temperature>0.f && temperature<=10.f) {
     tm1637.showNumberDec(t, false, 1, 2);
   } else {
     tm1637.showNumberDec(t, false, 2, 1);
@@ -387,11 +391,11 @@ void showTemperature(float val) {
   
   tm1637.setSegments(SEG_DEG, 1, 3);
   
-  delay(3000);
+  delay(MSECSHOWTEMP);
+  return true;
 }
 
 bool sendStatisticMQTT(void *) {
-  digitalWrite(BUILTIN_LED, LOW);
   //printSystemTime();
   DEBUG_PRINTLN(F("Statistic"));
 
@@ -404,14 +408,12 @@ bool sendStatisticMQTT(void *) {
   DEBUG_PRINTLN(F("Calling MQTT"));
   
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
-  digitalWrite(BUILTIN_LED, HIGH);
   sendNetInfoMQTT();
   return true;
 }
 
 
 void sendNetInfoMQTT() {
-  digitalWrite(BUILTIN_LED, LOW);
   //printSystemTime();
   DEBUG_PRINTLN(F("Net info"));
 
@@ -422,6 +424,5 @@ void sendNetInfoMQTT() {
   DEBUG_PRINTLN(F("Calling MQTT"));
   
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
-  digitalWrite(BUILTIN_LED, HIGH);
   return;
 }

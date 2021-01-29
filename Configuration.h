@@ -1,3 +1,6 @@
+//ESP8266-01 FLASH SIZE 1M  BUILDIN_LED to 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//WEMOS 4MB
+
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
@@ -19,11 +22,11 @@
 #define time
 #define verbose
 
-#define AUTOCONNECTNAME   HOSTNAMEOTA
-#define AUTOCONNECTPWD    "password"
+#define AUTOCONNECTNAME     HOSTNAMEOTA
+#define AUTOCONNECTPWD      "password"
+#define HOSTNAMEOTA         SW_NAME VERSION
 
 #ifdef ota
-#define HOSTNAMEOTA   SW_NAME VERSION
 #include <ArduinoOTA.h>
 #endif
 
@@ -73,33 +76,22 @@
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
-#define     BRIGHTNESS                    7
+#define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     DIO D3
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "Clock2"
-#define     BRIGHTNESS                    2
+#define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     DIO D3
 #endif
 #ifdef CLOCK3
 #define     SW_NAME                       "Clock3"
-#define     BRIGHTNESS                    7
-#endif
-
-#ifdef CLOCK1
-#define mqtt_topic              "/home/Clock1"           // here you have to set the topic for mqtt
-#endif
-#ifdef CLOCK3
-#define mqtt_topic              "/home/Clock3"           // here you have to set the topic for mqtt
-#endif
-#ifdef CLOCK2
-#define mqtt_topic              "/home/Clock2"           // here you have to set the topic for mqtt
+#define     CLK 2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     DIO 0
 #endif
 
 #ifdef CLOCK3
-#define CLK 2//pins//pins definitions for TM1637 and can be changed to other ports
-#define DIO 0
 #else
-#define CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
-#define DIO D3
 #endif
 
 static const char* const      mqtt_server                    = "192.168.1.56";
@@ -120,6 +112,8 @@ static const char* const      mqtt_brightness                = "brightness";
 static const char* const      mqtt_topic_restart             = "restart";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
+#define SHOWTEMP_DELAY                       10000  //zobrazeni teploty na displeji
+#define MSECSHOWTEMP                         1500   //na jak dlouho se teplota zobrazi v milisec
 
 uint32_t              connectDelay                = 30000; //30s
 uint32_t              lastConnectAttempt          = 0;  
