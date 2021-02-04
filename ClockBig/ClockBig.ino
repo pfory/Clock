@@ -158,6 +158,8 @@ void setup() {
   DEBUG_PRINT("Local port: ");
   DEBUG_PRINTLN(EthernetUdp.localPort());
   DEBUG_PRINTLN("waiting for sync");
+  while (getNtpTime()==0) {}
+  
   setSyncProvider(getNtpTime);
   setSyncInterval(60);
   
@@ -239,8 +241,6 @@ bool TimingISR(void *) {
     ClockPoint = (~ClockPoint) & 0x01;
 
     DrawDots();
-  } else if (type=='w') {
-    Weather();
   }
 
   return true;
@@ -508,7 +508,7 @@ void startupAnimation() {
  * Parameters: none
  */
 void Off() {
- DEBUG_PRINTLN("Clock is turning off");
+ DEBUG_PRINTLN("Clock is turning OFF");
   // for (int i = 0; i < NUMPIXELS; i++)  {
     // pixels.setPixelColor(i, pixels.Color(0, 0, 0));
   // }
@@ -523,7 +523,7 @@ void Off() {
  * Parameters: none
  */
 void Clock() {
-  DEBUG_PRINTLN("Clock is turning off");
+  DEBUG_PRINTLN("Clock mode");
   // for (int i = 0; i < NUMPIXELS; i++)  {
     // pixels.setPixelColor(i, pixels.Color(r, g, b));
   // }
@@ -572,7 +572,7 @@ void CallMode(String message) {
  * Parameters: brightness (0-255)
  */
 void SetBrightness(int brightness) {
-  Serial.printf("Setting brightness to %d%%\n", brightness);
+  DEBUG_PRINTF("Setting brightness to %d%%\n", brightness);
   pixels.setBrightness(brightness);
   Brightness = brightness;
   pixels.show();
@@ -612,9 +612,7 @@ void ExtractValues(String s, int startindex, int valuecount) {
  * - b: blue component (0-255)
  */
 void Set1Color(int mydigit, int r, int g, int b) {
-#ifdef DEBUG_SERIAL
-  Serial.printf("Setting digit: %d, r:%d g:%d b:%d\n", mydigit, r, g, b);
-#endif
+  DEBUG_PRINTF("Setting digit %d to color: r:%d g:%d b:%d\n", mydigit, r, g, b);
   if (mydigit == 1 || mydigit == 0) {
     cd[0] = r;
     cd[1] = g;
@@ -649,18 +647,18 @@ void Set1Color(int mydigit, int r, int g, int b) {
  * - b: blue component (0-255)
  */
 void Set1DotColor(int dotnr, int r, int g, int b) {
-	if (dotnr == 1)	{
-		cdo[0] = r;
-		cdo[1] = g;
-		cdo[2] = b;
-	}
-	if (dotnr == 2)	{
-		cdo[3] = r;
-		cdo[4] = g;
-		cdo[5] = b;
-	}
-	Serial.printf("Setting Dot Color of %d", dotnr);
-	pixels.show();
+  DEBUG_PRINTF("Setting dot %d to color: r:%d g:%d b:%d\n", dotnr, r, g, b);
+  if (dotnr == 1) {
+    cdo[0] = r;
+    cdo[1] = g;
+    cdo[2] = b;
+  }
+  if (dotnr == 2) {
+    cdo[3] = r;
+    cdo[4] = g;
+    cdo[5] = b;
+  }
+  pixels.show();
 }
 
 
@@ -672,7 +670,13 @@ void Set1DotColor(int dotnr, int r, int g, int b) {
    Called when a type is 'w'
 */
 void Weather() {
+  DEBUG_PRINTLN("Weather mode");
   int temp = (int)round(temperature);
+  
+  if (temp==-55) {
+    DEBUG_PRINTLN("No temperature from Meteo unit yet");
+    return;
+  }
 
   for (int i = 0; i < NUMPIXELS; i++) pixels.setPixelColor(i, pixels.Color(0, 0, 0));
 
@@ -733,35 +737,35 @@ void Weather() {
  * Parameters: temperature in °C
  */
 void GetWeatherColor(int temp) {
-	int R = 255; int G = 255; int B = 255;
-	if (temp < -40) {
-		R = 0; G = 197;	B = 229;
-	}	else if (temp < -30) {
-		R = 28;	G = 203; B = 204;
-	}	else if (temp < -20) {
-		R = 56;	G = 209; B = 180;
-	}	else if (temp < -10) {
-		R = 84;	G = 216; B = 156;
-	}	else if (temp < 0) {
-		R = 112; G = 222; B = 131;
-	}	else if (temp < 4) {
-		R = 140; G = 229; B = 107;
-	}	else if (temp < 8) {
-		R = 168; G = 235; B = 83;
-	}	else if (temp < 14) {
-		R = 196; G = 242; B = 58;
-	}	else if (temp < 18) {
-		R = 224; G = 248; B = 34;
-	}	else if (temp < 22) {
-		R = 253, G = 244, B = 10;
-	}	else if (temp < 26) {
-		R = 253, G = 233, B = 10;
-	}	else if (temp < 30) {
-		R = 254, G = 142, B = 10;
-	}	else if (temp < 34) {
-		R = 254, G = 105, B = 10;
-	}	else {
-		R = 255, G = 0, B = 0;
-	}
-	wr = R; wg = G; wb = B;
+  int R = 255; int G = 255; int B = 255;
+  if (temp < -40) {
+    R = 0; G = 197; B = 229;
+  } else if (temp < -30) {
+    R = 28; G = 203; B = 204;
+  } else if (temp < -20) {
+    R = 56; G = 209; B = 180;
+  } else if (temp < -10) {
+    R = 84; G = 216; B = 156;
+  } else if (temp < 0) {
+    R = 112; G = 222; B = 131;
+  } else if (temp < 4) {
+    R = 140; G = 229; B = 107;
+  } else if (temp < 8) {
+    R = 168; G = 235; B = 83;
+  } else if (temp < 14) {
+    R = 196; G = 242; B = 58;
+  } else if (temp < 18) {
+    R = 224; G = 248; B = 34;
+  } else if (temp < 22) {
+    R = 253, G = 244, B = 10;
+  } else if (temp < 26) {
+    R = 253, G = 233, B = 10;
+  } else if (temp < 30) {
+    R = 254, G = 142, B = 10;
+  } else if (temp < 34) {
+    R = 254, G = 105, B = 10;
+  } else {
+    R = 255, G = 0, B = 0;
+  }
+  wr = R; wg = G; wb = B;
 }
