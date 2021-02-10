@@ -379,11 +379,11 @@ bool showTemperature(void *) {
   // void TM1637Display::showNumberDec(int num, bool leading_zero, uint8_t length, uint8_t pos)
   int t = round(temperature);
 
-  if (temperature<=-10.f) {
+  if (t<=-10.f) {
     tm1637.showNumberDec(t, false, 3, 0);
-  } else if (temperature>-10.f && temperature<=0.f) {
+  } else if (t>-10.f && t<=0.f) {
     tm1637.showNumberDec(t, false, 2, 1);
-  } else if (temperature>0.f && temperature<=10.f) {
+  } else if (t>0.f && t<=10.f) {
     tm1637.showNumberDec(t, false, 1, 2);
   } else {
     tm1637.showNumberDec(t, false, 2, 1);
