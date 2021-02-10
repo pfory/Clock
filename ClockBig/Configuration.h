@@ -14,7 +14,7 @@
 
 //SW name & version
 #define     SW_NAME                       "ClockBig"
-#define     VERSION                       "1.00"
+#define     VERSION                       "1.01"
 
 #define ota
 #define time
@@ -76,7 +76,6 @@ static const char* const      mqtt_key                       = "hanka12";
 static const char* const      mqtt_base                      = "/home/ClockBig";
 static const char* const      mqtt_topic_weather             = "/home/Meteo/Temperature";
 static const char* const      mqtt_topic_restart             = "restart";
-static const char* const      mqtt_topic                     = "ClockBig";
 static const char* const      mqtt_topic_request             = "request";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu

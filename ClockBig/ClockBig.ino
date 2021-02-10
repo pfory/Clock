@@ -349,9 +349,8 @@ void reconnect() {
       // Attempt to connect
       if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
         DEBUG_PRINTLN("connected");
-        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str());
         client.subscribe(String(mqtt_topic_weather).c_str());
-        client.subscribe(String(mqtt_topic).c_str());
+        client.subscribe(String(mqtt_base).c_str());
       } else {
         lastConnectAttempt = millis();
         DEBUG_PRINT("failed, rc=");
