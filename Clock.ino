@@ -383,7 +383,7 @@ bool showTemperature(void *) {
     tm1637.showNumberDec(t, false, 3, 0);
   } else if (t>-10.f && t<=0.f) {
     tm1637.showNumberDec(t, false, 2, 1);
-  } else if (t>0.f && t<=10.f) {
+  } else if (t>0.f && t<10.f) {
     tm1637.showNumberDec(t, false, 1, 2);
   } else {
     tm1637.showNumberDec(t, false, 2, 1);
