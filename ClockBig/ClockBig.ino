@@ -218,6 +218,13 @@ void setup() {
 
 
 void loop() {
+  if (second()%10<2) {
+    type = 'w';
+    Weather();
+  } else {
+    type = 'c';
+    Clock();
+  }
   timer.tick(); // tick the timer
 #ifdef ota
   ArduinoOTA.handle();
