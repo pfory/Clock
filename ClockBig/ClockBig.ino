@@ -218,7 +218,7 @@ void setup() {
 
 
 void loop() {
-  if (second()%10<2) {
+  if ((second()%10)<2) {
     type = 'w';
     Weather();
   } else {
