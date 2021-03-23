@@ -229,9 +229,7 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  if (!client.connected()) {
-    reconnect();
-  }
+  reconnect();
   client.loop();
 }
 
