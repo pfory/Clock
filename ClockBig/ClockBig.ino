@@ -218,14 +218,6 @@ void setup() {
 
 
 void loop() {
-  if (type=='0') {
-  } else if ((second()%10)<2) {
-    type = 'w';
-    Weather();
-  } else {
-    type = 'c';
-    Clock();
-  }
   timer.tick(); // tick the timer
 #ifdef ota
   ArduinoOTA.handle();
@@ -235,6 +227,15 @@ void loop() {
 }
 
 bool TimingISR(void *) {
+  if (type=='0') {
+  } else if ((second()%10)<2) {
+    type = 'w';
+    Weather();
+  } else {
+    type = 'c';
+    Clock();
+  }
+
   if (type=='c') {
     DrawTime();
     if(ClockPoint) {
@@ -528,7 +529,7 @@ void Off() {
  * Parameters: none
  */
 void Clock() {
-  DEBUG_PRINTLN("Clock mode");
+  //DEBUG_PRINTLN("Clock mode");
   // for (int i = 0; i < NUMPIXELS; i++)  {
     // pixels.setPixelColor(i, pixels.Color(r, g, b));
   // }
@@ -675,11 +676,11 @@ void Set1DotColor(int dotnr, int r, int g, int b) {
    Called when a type is 'w'
 */
 void Weather() {
-  DEBUG_PRINTLN("Weather mode");
+  //DEBUG_PRINTLN("Weather mode");
   int temp = (int)round(temperature);
   
   if (temp==-55) {
-    DEBUG_PRINTLN("No temperature from Meteo unit yet");
+    //DEBUG_PRINTLN("No temperature from Meteo unit yet");
     return;
   }
 
