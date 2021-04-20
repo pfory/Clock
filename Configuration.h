@@ -16,7 +16,7 @@
 #include <Timezone.h>
 
 //SW name & version
-#define     VERSION                       "2.00"
+#define     VERSION                       "2.10"
 
 #define ota
 #define time
@@ -72,17 +72,21 @@
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK3
+#define CLOCK2
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
 #define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
 #define     DIO D3
+#define     TEMPERATURE_PROBE
+#define     ONE_WIRE_BUS  D7
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "Clock2"
 #define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
 #define     DIO D3
+#define     TEMPERATURE_PROBE
+#define     ONE_WIRE_BUS  D7
 #endif
 #ifdef CLOCK3
 #define     SW_NAME                       "Clock3"
@@ -92,6 +96,11 @@
 
 #ifdef CLOCK3
 #else
+#endif
+
+#ifdef TEMPERATURE_PROBE
+#include <Wire.h>
+#include <DallasTemperature.h>
 #endif
 
 static const char* const      mqtt_server                    = "192.168.1.56";
@@ -114,6 +123,11 @@ static const char* const      mqtt_topic_restart             = "restart";
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
 #define SHOWTEMP_DELAY                       10000  //zobrazeni teploty na displeji
 #define MSECSHOWTEMP                         1500   //na jak dlouho se teplota zobrazi v milisec
+#ifdef TEMPERATURE_PROBE
+#define MEAS_DELAY                           30000  //mereni teploty
+#define MEAS_TIME                            750    //in ms
+#endif
+
 
 uint32_t              connectDelay                = 30000; //30s
 uint32_t              lastConnectAttempt          = 0;  

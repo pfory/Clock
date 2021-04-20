@@ -18,6 +18,7 @@ int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
 unsigned char ClockPoint                    = 1;
 uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
+float         temperatureDS                 = 0.f;
 
 TM1637Display tm1637(CLK,DIO);
 
@@ -29,6 +30,12 @@ TimeChangeRule        CET                   = {"CET", Last, Sun, Oct, 3, 60};   
 Timezone CE(CEST, CET);
 unsigned int          localPort             = 8888;  // local port to listen for UDP packets
 time_t getNtpTime();
+
+#ifdef TEMPERATURE_PROBE
+OneWire onewire(ONE_WIRE_BUS); // pin for onewire DALLAS bus
+DallasTemperature dsSensors(&onewire);
+bool                  DS18B20Present      = false;
+#endif
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -101,7 +108,7 @@ void setup() {
 
   pinMode(BUILTIN_LED, OUTPUT);
   ticker.attach(1, tick);
-
+  
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
 
   //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
@@ -205,7 +212,24 @@ void setup() {
   }
 
   tm1637.setSegments(SEG_DONE);
+
+#ifdef TEMPERATURE_PROBE
+  Wire.begin();
+  DEBUG_PRINT("Temperature probe DS18B20: ");
+  dsSensors.begin(); 
+  if (dsSensors.getDeviceCount()>0) {
+    DEBUG_PRINTLN("Sensor found.");
+    DS18B20Present = true;
+    dsSensors.setResolution(12);
+    dsSensors.setWaitForConversion(false);
+  } else {
+    DEBUG_PRINTLN("Sensor missing!!!!");
+  }
+
   delay(1000);
+
+  timer.every(MEAS_DELAY, meass);
+#endif
 
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
@@ -395,14 +419,42 @@ bool showTemperature(void *) {
   return true;
 }
 
+#ifdef TEMPERATURE_PROBE
+bool meass(void *) {
+  digitalWrite(BUILTIN_LED, LOW);
+  
+  if (DS18B20Present) {
+    dsSensors.requestTemperatures(); // Send the command to get temperatures
+    delay(MEAS_TIME);
+    if (dsSensors.getCheckForConversion()==true) {
+      temperatureDS = dsSensors.getTempCByIndex(0);
+    }
+    DEBUG_PRINTLN("-------------");
+    DEBUG_PRINT("Temperature DS18B20: ");
+    DEBUG_PRINT(temperatureDS); 
+    DEBUG_PRINTLN(" *C");
+  } else {
+    temperatureDS = 0.0; //dummy
+  }
+  
+  digitalWrite(BUILTIN_LED, HIGH);
+
+  return true;
+}
+#endif
+
+
 bool sendStatisticMQTT(void *) {
   //printSystemTime();
   DEBUG_PRINTLN(F("Statistic"));
 
   SenderClass sender;
-  sender.add("VersionSW",              VERSION);
-  sender.add("Napeti",  ESP.getVcc());
-  sender.add("HeartBeat",                     heartBeat++);
+  sender.add("VersionSW",               VERSION);
+  sender.add("Napeti",                  ESP.getVcc());
+  sender.add("HeartBeat",               heartBeat++);
+#ifdef TEMPERATURE_PROBE
+  sender.add("Temperature",             temperatureDS);
+#endif
   if (heartBeat % 10 == 0) sender.add("RSSI", WiFi.RSSI());
   
   DEBUG_PRINTLN(F("Calling MQTT"));
