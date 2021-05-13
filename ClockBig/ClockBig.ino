@@ -7,6 +7,9 @@ uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
 unsigned char ClockPoint                    = 1;
 
+const byte numChars = 50;
+char receivedChars[numChars]; // an array to store the received data
+
 WiFiUDP EthernetUdp;
 IPAddress ntpServerIP                       = IPAddress(195, 113, 144, 201);        //tik.cesnet.cz
 //Central European Time (Frankfurt, Paris)
@@ -64,7 +67,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     DEBUG_PRINT("RESTART");
     ESP.restart();
   } else {
-    CallMode(val);
+   	int i = 0;
+    for (i = 0; i < length; i++) {
+      receivedChars[i] = (char)payload[i];
+    }
+    receivedChars[i] = '\0';
+    CallMode(receivedChars[0]);
   }
 }
 
@@ -224,6 +232,12 @@ void loop() {
 #endif
   reconnect();
   client.loop();
+  
+  if (hour()>23 || hour() < 7) {
+    SetBrightness(5);
+  } else {
+    SetBrightness(100);
+  }
 }
 
 bool TimingISR(void *) {
@@ -545,30 +559,30 @@ void Clock() {
  * Called when a new message arrives
  * Parameters: mymode: character
  */
-void CallMode(String message) {
-  if (message[0]=='0') { //0
+void CallMode(char mymode) {
+  if (mymode=='0') { //0
     type = '0';
     Off();
   }
-  if (message[0]=='c') { //c
+  if (mymode=='c') { //c
     type = 'c';
     Clock();
   }
-  if (message[0]=='w') { // w
+  if (mymode=='w') { // w
     type = 'w';
     Weather();
   }
-  if (message[0]=='b') {  //b;80
-    ExtractValues(message,2,1);
-    SetBrightness(atoi(vals[0]));
+  // if (mymode=='b') {  //b;80
+		// ExtractValues(2, 1);
+    // SetBrightness(atoi(vals[0]));
+  // }
+  if (mymode == 'f') { // f;1;8;255;34
+    ExtractValues(4,3);
+    Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
   }
-  if (message[0] == 'f') { // f;1;8;255;34
-    ExtractValues(message,4,3);
-    Set1Color(message[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  }
-  if (message[0] == 'h') { // h;1;255;0;0
-    ExtractValues(message,4,3);
-    Set1DotColor(message[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
+  if (mymode == 'h') { // h;1;255;0;0
+    ExtractValues(4,3);
+    Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
   }
 }
 
@@ -591,12 +605,12 @@ void SetBrightness(int brightness) {
  * - startindex: position in the string where to start
  * - valuecount: amount of values to capture
  */
-void ExtractValues(String s, int startindex, int valuecount) {
+void ExtractValues(int startindex, int valuecount) {
   int pos = startindex;
   for (int c = 0; c < valuecount; c++) {
     int i = 0;
-    while (s[pos] != ';' && s[pos] != '\0') {
-      vals[c][i] = s[pos];
+    while (receivedChars[pos] != ';' && receivedChars[pos] != '\0') {
+      vals[c][i] = receivedChars[pos];
       pos++;
       i++;
     }
@@ -607,6 +621,7 @@ void ExtractValues(String s, int startindex, int valuecount) {
     DEBUG_PRINT("Extracting: "); DEBUG_PRINTLN(vals[p]);
   }
 }
+
 
 /*
  * Function: Set1Color
