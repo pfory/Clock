@@ -169,7 +169,7 @@ void setup() {
   while (getNtpTime()==0) {}
   
   setSyncProvider(getNtpTime);
-  setSyncInterval(6000);
+  setSyncInterval(60);
   
   printSystemTime();
 #endif
@@ -230,7 +230,7 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  reconnect();
+  //reconnect();
   client.loop();
   
   if (hour()>=23 || hour() < 7) {
@@ -241,15 +241,15 @@ void loop() {
 }
 
 bool TimingISR(void *) {
-  if (type=='0') {
-  } else if ((second()%10)<2) {
-    if (Weather()==1) {
-      type = 'w';
-    }
-  } else {
-    type = 'c';
-    Clock();
-  }
+  // if (type=='0') {
+  // } else if ((second()%10)<2) {
+    // if (Weather()==1) {
+      // type = 'w';
+    // }
+  // } else {
+    // type = 'c';
+    // Clock();
+  // }
 
   if (type=='c') {
     DrawTime();
@@ -372,7 +372,7 @@ void reconnect() {
       if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
         DEBUG_PRINTLN("connected");
         client.subscribe(String(mqtt_topic_weather).c_str());
-        client.subscribe(String(mqtt_base).c_str());
+        client.subscribe((String(mqtt_base) + "/#").c_str());
       } else {
         lastConnectAttempt = millis();
         DEBUG_PRINT("failed, rc=");
