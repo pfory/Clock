@@ -47,33 +47,33 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
-  char * pEnd;
-  String val =  String();
-  DEBUG_PRINT("\nMessage arrived [");
-  DEBUG_PRINT(topic);
-  DEBUG_PRINT("] ");
-  for (int i=0;i<length;i++) {
-    DEBUG_PRINT((char)payload[i]);
-    val += (char)payload[i];
-  }
-  DEBUG_PRINTLN();
+  // char * pEnd;
+  // String val =  String();
+  // DEBUG_PRINT("\nMessage arrived [");
+  // DEBUG_PRINT(topic);
+  // DEBUG_PRINT("] ");
+  // // for (int i=0;i<length;i++) {
+    // // DEBUG_PRINT((char)payload[i]);
+    // // val += (char)payload[i];
+  // // }
+  // // DEBUG_PRINTLN();
  
-  if (strcmp(topic, mqtt_topic_weather)==0) {
-    DEBUG_PRINT("Temperature from Meteo: ");
-    DEBUG_PRINTLN(val.toFloat());
-    temperature = val.toFloat();
-  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
-    Off();
-    DEBUG_PRINT("RESTART");
-    ESP.restart();
-  } else {
-   	int i = 0;
-    for (i = 0; i < length; i++) {
-      receivedChars[i] = (char)payload[i];
-    }
-    receivedChars[i] = '\0';
-    CallMode(receivedChars[0]);
-  }
+  // if (strcmp(topic, mqtt_topic_weather)==0) {
+    // // DEBUG_PRINT("Temperature from Meteo: ");
+    // // DEBUG_PRINTLN(val.toFloat());
+    // // temperature = val.toFloat();
+  // } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
+    // Off();
+    // DEBUG_PRINT("RESTART");
+    // ESP.restart();
+  // } else {
+   	// // int i = 0;
+    // // for (i = 0; i < length; i++) {
+      // // receivedChars[i] = (char)payload[i];
+    // // }
+    // // receivedChars[i] = '\0';
+    // // CallMode(receivedChars[0]);
+  // }
 }
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
@@ -169,7 +169,7 @@ void setup() {
   while (getNtpTime()==0) {}
   
   setSyncProvider(getNtpTime);
-  setSyncInterval(60);
+  setSyncInterval(6000);
   
   printSystemTime();
 #endif
@@ -211,7 +211,7 @@ void setup() {
 
 
   timer.every(500, TimingISR);
-  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
   SenderClass sender;
   sender.add(mqtt_topic_request,              "setup");
@@ -233,18 +233,19 @@ void loop() {
   reconnect();
   client.loop();
   
-  if (hour()>23 || hour() < 7) {
-    SetBrightness(5);
+  if (hour()>=23 || hour() < 7) {
+    SetBrightness(1);
   } else {
-    SetBrightness(100);
+    SetBrightness(255);
   }
 }
 
 bool TimingISR(void *) {
   if (type=='0') {
   } else if ((second()%10)<2) {
-    type = 'w';
-    Weather();
+    if (Weather()==1) {
+      type = 'w';
+    }
   } else {
     type = 'c';
     Clock();
@@ -690,13 +691,13 @@ void Set1DotColor(int dotnr, int r, int g, int b) {
    Temperatures are in CELCIUS
    Called when a type is 'w'
 */
-void Weather() {
+int Weather() {
   //DEBUG_PRINTLN("Weather mode");
   int temp = (int)round(temperature);
   
   if (temp==-55) {
     //DEBUG_PRINTLN("No temperature from Meteo unit yet");
-    return;
+    return 0;
   }
 
   for (int i = 0; i < NUMPIXELS; i++) pixels.setPixelColor(i, pixels.Color(0, 0, 0));
@@ -748,6 +749,7 @@ void Weather() {
   pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
   pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
   pixels.show();
+  return 1;
 }
 
 /*
