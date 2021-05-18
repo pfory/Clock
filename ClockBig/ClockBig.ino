@@ -6,6 +6,7 @@ Timer<> default_timer; // save as above
 uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
 unsigned char ClockPoint                    = 1;
+bool          brightness                    = LOW;
 
 const byte numChars = 50;
 char receivedChars[numChars]; // an array to store the received data
@@ -47,33 +48,33 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
-  // char * pEnd;
-  // String val =  String();
-  // DEBUG_PRINT("\nMessage arrived [");
-  // DEBUG_PRINT(topic);
-  // DEBUG_PRINT("] ");
-  // // for (int i=0;i<length;i++) {
-    // // DEBUG_PRINT((char)payload[i]);
-    // // val += (char)payload[i];
-  // // }
-  // // DEBUG_PRINTLN();
+  char * pEnd;
+  String val =  String();
+  DEBUG_PRINT("\nMessage arrived [");
+  DEBUG_PRINT(topic);
+  DEBUG_PRINT("] ");
+  for (int i=0;i<length;i++) {
+    DEBUG_PRINT((char)payload[i]);
+    val += (char)payload[i];
+  }
+  DEBUG_PRINTLN();
  
-  // if (strcmp(topic, mqtt_topic_weather)==0) {
-    // // DEBUG_PRINT("Temperature from Meteo: ");
-    // // DEBUG_PRINTLN(val.toFloat());
-    // // temperature = val.toFloat();
-  // } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
-    // Off();
-    // DEBUG_PRINT("RESTART");
-    // ESP.restart();
-  // } else {
-   	// // int i = 0;
-    // // for (i = 0; i < length; i++) {
-      // // receivedChars[i] = (char)payload[i];
-    // // }
-    // // receivedChars[i] = '\0';
-    // // CallMode(receivedChars[0]);
-  // }
+  if (strcmp(topic, mqtt_topic_weather)==0) {
+    DEBUG_PRINT("Temperature from Meteo: ");
+    DEBUG_PRINTLN(val.toFloat());
+    temperature = val.toFloat();
+  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
+    Off();
+    DEBUG_PRINT("RESTART");
+    ESP.restart();
+  } else {
+   	int i = 0;
+    for (i = 0; i < length; i++) {
+      receivedChars[i] = (char)payload[i];
+    }
+    receivedChars[i] = '\0';
+    CallMode(receivedChars[0]);
+  }
 }
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
@@ -230,26 +231,29 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  //reconnect();
+  reconnect();
   client.loop();
   
-  if (hour()>=23 || hour() < 7) {
+  if ((hour()>=23 || hour() < 7) && brightness == HIGH) {
     SetBrightness(1);
-  } else {
+    brightness = LOW;
+  }
+  if ((hour()<23 || hour() >= 7) && brightness == LOW) {
     SetBrightness(255);
+    brightness = HIGH;
   }
 }
 
 bool TimingISR(void *) {
-  // if (type=='0') {
-  // } else if ((second()%10)<2) {
-    // if (Weather()==1) {
-      // type = 'w';
-    // }
-  // } else {
-    // type = 'c';
-    // Clock();
-  // }
+  if (type=='0') {
+  } else if ((second()%10)<2) {
+    if (Weather()==1) {
+      type = 'w';
+    }
+  } else {
+    type = 'c';
+    Clock();
+  }
 
   if (type=='c') {
     DrawTime();
