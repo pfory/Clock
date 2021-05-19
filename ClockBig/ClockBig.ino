@@ -234,14 +234,15 @@ void loop() {
   reconnect();
   client.loop();
   
-  if ((hour()>=23 || hour() < 7) && brightness == HIGH) {
-    SetBrightness(1);
-    brightness = LOW;
-  }
-  if ((hour()<23 || hour() >= 7) && brightness == LOW) {
-    SetBrightness(255);
-    brightness = HIGH;
-  }
+  // if ((hour()>=23 || hour() < 7) && brightness == HIGH) {
+    // SetBrightness(1);
+    // brightness = LOW;
+  // } else {
+    // if (brightness == LOW) {
+      // SetBrightness(255);
+      // brightness = HIGH;
+    // }
+  // }
 }
 
 bool TimingISR(void *) {
