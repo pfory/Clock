@@ -592,10 +592,10 @@ void CallMode(char mymode) {
     type = 'w';
     Weather();
   }
-  // if (mymode=='b') {  //b;80
-		// ExtractValues(2, 1);
-    // SetBrightness(atoi(vals[0]));
-  // }
+  if (mymode=='b') {  //b;80
+		ExtractValues(2, 1);
+    SetBrightness(atoi(vals[0]));
+  }
   if (mymode == 'f') { // f;1;8;255;34
     ExtractValues(4,3);
     Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
