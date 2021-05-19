@@ -231,6 +231,7 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
+  checkWiFiConnection();
   reconnect();
   client.loop();
   
@@ -243,6 +244,19 @@ void loop() {
       // brightness = HIGH;
     // }
   // }
+}
+
+void checkWiFiConnection() {
+  if (WiFi.status() != WL_CONNECTED) {
+    DEBUG_PRINTLN("RESTARTING WIFI CONNECTION!!!!!");
+    if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
+      DEBUG_PRINTLN("failed to connect and hit timeout");
+      delay(3000);
+      //reset and try again, or maybe put it to deep sleep
+      ESP.reset();
+      delay(5000);
+    }   
+  }
 }
 
 bool TimingISR(void *) {
