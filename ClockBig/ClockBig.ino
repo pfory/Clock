@@ -67,6 +67,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Off();
     DEBUG_PRINT("RESTART");
     ESP.restart();
+  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str())==0) {
+    DEBUG_PRINT("NET INFO");
+    sendNetInfoMQTT();
   } else {
    	int i = 0;
     for (i = 0; i < length; i++) {
@@ -212,12 +215,15 @@ void setup() {
 
 
   timer.every(500, TimingISR);
-  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
   SenderClass sender;
   sender.add(mqtt_topic_request,              "setup");
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
-    
+  
+  void * a;
+  sendStatisticMQTT(a);
+   
   DEBUG_PRINTLN(" Ready");
  
   drd.stop();
@@ -406,15 +412,14 @@ bool sendStatisticMQTT(void *) {
   DEBUG_PRINTLN(F("Statistic"));
 
   SenderClass sender;
-  sender.add("VersionSW",              VERSION);
-  sender.add("Napeti",  ESP.getVcc());
+  sender.add("VersionSW",                     VERSION);
+  sender.add("Napeti",                        ESP.getVcc());
   sender.add("HeartBeat",                     heartBeat++);
   if (heartBeat % 10 == 0) sender.add("RSSI", WiFi.RSSI());
   
   DEBUG_PRINTLN(F("Calling MQTT"));
   
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
-  sendNetInfoMQTT();
   return true;
 }
 
@@ -424,8 +429,8 @@ void sendNetInfoMQTT() {
   DEBUG_PRINTLN(F("Net info"));
 
   SenderClass sender;
-  sender.add("IP",              WiFi.localIP().toString().c_str());
-  sender.add("MAC",             WiFi.macAddress());
+  sender.add("IP",                            WiFi.localIP().toString().c_str());
+  sender.add("MAC",                           WiFi.macAddress());
   
   DEBUG_PRINTLN(F("Calling MQTT"));
   
