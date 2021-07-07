@@ -11,10 +11,11 @@
 #include <TimeLib.h>
 #include <Timezone.h>
 #include <Adafruit_NeoPixel.h>
+#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
 #define     SW_NAME                       "ClockBig"
-#define     VERSION                       "1.13"
+#define     VERSION                       "1.14"
 
 #define ota
 #define time
@@ -37,7 +38,7 @@
 #include <ESP8266WebServer.h>
 #endif
 
-#define CFGFILE "/config.json"
+//#define CFGFILE "/config.json"
 
 
 #ifdef verbose
@@ -78,6 +79,7 @@ static const char* const      mqtt_topic_weather             = "/home/Meteo/Temp
 static const char* const      mqtt_topic_restart             = "restart";
 static const char* const      mqtt_topic_request             = "request";
 static const char* const      mqtt_topic_netinfo             = "netinfo";
+static const char* const      mqtt_topic_load                = "load";
 
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu

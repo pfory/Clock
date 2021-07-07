@@ -70,13 +70,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str())==0) {
     DEBUG_PRINT("NET INFO");
     sendNetInfoMQTT();
-  } else {
-   	int i = 0;
-    for (i = 0; i < length; i++) {
-      receivedChars[i] = (char)payload[i];
-    }
-    receivedChars[i] = '\0';
-    CallMode(receivedChars[0]);
+  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str())==0) {
+    processJson(val);
+
+   	// int i = 0;
+    // for (i = 0; i < length; i++) {
+      // receivedChars[i] = (char)payload[i];
+    // }
+    // receivedChars[i] = '\0';
+    // CallMode(receivedChars[0]);
   }
 }
 
@@ -390,7 +392,7 @@ void printSystemTime(){
 
 void reconnect() {
   // Loop until we're reconnected
-  if (!client.connected()) {
+  while (!client.connected()) {
     if (lastConnectAttempt == 0 || lastConnectAttempt + connectDelay < millis()) {
       DEBUG_PRINT("Attempting MQTT connection...");
       // Attempt to connect
@@ -816,3 +818,51 @@ void GetWeatherColor(int temp) {
   }
   wr = R; wg = G; wb = B;
 }
+
+bool processJson(String message) {
+  char json[100];
+  message.toCharArray(json, 100);
+  //DEBUG_PRINTLN(json);
+
+  //DynamicJsonDocument doc(1024);
+  //deserializeJson(doc, json);
+
+  //SetBrightness(doc["brightness"]);
+  
+  // if (mymode=='0') { //0
+    // type = '0';
+    // Off();
+  // }
+  // if (mymode=='c') { //c
+    // type = 'c';
+    // Clock();
+  // }
+  // if (mymode=='w') { // w
+    // type = 'w';
+    // Weather();
+  // }
+  // if (mymode=='b') {  //b;80
+		// ExtractValues(2, 1);
+    // SetBrightness(atoi(vals[0]));
+  // }
+  // if (mymode == 'f') { // f;1;8;255;34
+    // ExtractValues(4,3);
+    // Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
+  // }
+  // if (mymode == 'h') { // h;1;255;0;0
+    // ExtractValues(4,3);
+    // Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
+  // }
+
+
+  // realRed = doc["red"];
+  // DEBUG_PRINTLN(realRed);
+  // realBlue = doc["blue"];
+  // DEBUG_PRINTLN(realBlue);
+  // realGreen = doc["green"];
+  // DEBUG_PRINTLN(realGreen);
+  // analogWrite(redPin, realRed);
+  // analogWrite(bluePin, realBlue);
+  // analogWrite(greenPin, realGreen);
+  return true;
+} 
