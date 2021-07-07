@@ -619,7 +619,7 @@ void CallMode(char mymode) {
  * Parameters: brightness (0-255)
  */
 void SetBrightness(int brightness) {
-  DEBUG_PRINTF("Setting brightness to %d%%\n", brightness);
+  DEBUG_PRINTF("Setting brightness to %d%\n", brightness);
   pixels.setBrightness(brightness);
   Brightness = brightness;
   pixels.show();
@@ -820,14 +820,20 @@ void GetWeatherColor(int temp) {
 }
 
 bool processJson(String message) {
-  char json[100];
-  message.toCharArray(json, 100);
-  //DEBUG_PRINTLN(json);
+  char json[300];
+  message.toCharArray(json, 300);
+  DEBUG_PRINTLN(json);
 
-  //DynamicJsonDocument doc(1024);
-  //deserializeJson(doc, json);
+  DynamicJsonDocument doc(1024);
+  deserializeJson(doc, json);
 
-  //SetBrightness(doc["brightness"]);
+  SetBrightness(doc["brightness"]);
+  Set1Color(1, doc["digit1"][0], doc["digit1"][1], doc["digit1"][2]);
+  Set1Color(2, doc["digit2"][0], doc["digit2"][1], doc["digit2"][2]);
+  Set1Color(3, doc["digit3"][0], doc["digit3"][1], doc["digit3"][2]);
+  Set1Color(4, doc["digit4"][0], doc["digit4"][1], doc["digit4"][2]);
+  Set1DotColor(1, doc["dot1"][0], doc["dot1"][1], doc["dot1"][2]);
+  Set1DotColor(2, doc["dot2"][0], doc["dot2"][1], doc["dot2"][2]);
   
   // if (mymode=='0') { //0
     // type = '0';
