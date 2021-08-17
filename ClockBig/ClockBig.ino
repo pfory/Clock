@@ -7,6 +7,7 @@ uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
 unsigned char ClockPoint                    = 1;
 bool          brightness                    = LOW;
+bool          prijemDat                     = false;
 
 const byte numChars = 50;
 char receivedChars[numChars]; // an array to store the received data
@@ -22,6 +23,7 @@ time_t getNtpTime();
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+
 
 DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
 
@@ -48,6 +50,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
+  prijemDat = true;
   char * pEnd;
   String val =  String();
   DEBUG_PRINT("\nMessage arrived [");
@@ -80,6 +83,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     // receivedChars[i] = '\0';
     // CallMode(receivedChars[0]);
   }
+  prijemDat = false;
 }
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
@@ -410,18 +414,20 @@ void reconnect() {
 }
 
 bool sendStatisticMQTT(void *) {
-  //printSystemTime();
-  DEBUG_PRINTLN(F("Statistic"));
+  if (!prijemDat) {
+    //printSystemTime();
+    DEBUG_PRINTLN(F("Statistic"));
 
-  SenderClass sender;
-  sender.add("VersionSW",                     VERSION);
-  sender.add("Napeti",                        ESP.getVcc());
-  sender.add("HeartBeat",                     heartBeat++);
-  if (heartBeat % 10 == 0) sender.add("RSSI", WiFi.RSSI());
-  
-  DEBUG_PRINTLN(F("Calling MQTT"));
-  
-  sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
+    SenderClass sender;
+    sender.add("VersionSW",                     VERSION);
+    sender.add("Napeti",                        ESP.getVcc());
+    sender.add("HeartBeat",                     heartBeat++);
+    if (heartBeat % 10 == 0) sender.add("RSSI", WiFi.RSSI());
+    
+    DEBUG_PRINTLN(F("Calling MQTT"));
+    
+    sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
+  }
   return true;
 }
 
