@@ -15,7 +15,7 @@
 
 //SW name & version
 #define     SW_NAME                       "ClockBig"
-#define     VERSION                       "1.17"
+#define     VERSION                       "1.21"
 
 #define ota
 #define time

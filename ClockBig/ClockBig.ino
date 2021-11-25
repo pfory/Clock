@@ -6,7 +6,6 @@ Timer<> default_timer; // save as above
 uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
 unsigned char ClockPoint                    = 1;
-bool          brightness                    = LOW;
 bool          prijemDat                     = false;
 
 const byte numChars = 50;
@@ -23,7 +22,6 @@ time_t getNtpTime();
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-
 
 DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
 
@@ -75,13 +73,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     sendNetInfoMQTT();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str())==0) {
     processJson(val);
-
-   	// int i = 0;
-    // for (i = 0; i < length; i++) {
-      // receivedChars[i] = (char)payload[i];
-    // }
-    // receivedChars[i] = '\0';
-    // CallMode(receivedChars[0]);
   }
   prijemDat = false;
 }
@@ -101,12 +92,12 @@ char vals[14][6] = { "", "", "", "", "", "", "", "", "", "", "", "", "", "" };
 
 char type = 'c';  // clock mode
 
-int Brightness = 0;
+//int Brightness = 0;
 
+// Color of the digits for weather
 int wr = 255;
 int wg = 255;
 int wb = 255;
-
 
 WiFiManager wifiManager;
 
@@ -179,7 +170,7 @@ void setup() {
   while (getNtpTime()==0) {}
   
   setSyncProvider(getNtpTime);
-  setSyncInterval(60);
+  setSyncInterval(3600);
   
   printSystemTime();
 #endif
@@ -217,7 +208,7 @@ void setup() {
   pixels.begin();
   startupAnimation();
   type = 'c';
-  Brightness = 255;
+  //Brightness = 255;
 
 
   timer.every(500, TimingISR);
@@ -243,17 +234,21 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  checkWiFiConnection();
+  //checkWiFiConnection();
   reconnect();
   client.loop();
-  
-  // if ((hour()>=23 || hour() < 7) && brightness == HIGH) {
-    // SetBrightness(1);
-    // brightness = LOW;
-  // } else {
-    // if (brightness == LOW) {
-      // SetBrightness(255);
-      // brightness = HIGH;
+
+  // if (type=='c') {
+    // DrawTime();
+    // if (ClockPoint) {
+      // dot1 = dot2 = 0;
+    // } else {
+      // dot1 = dot2 = 1;
+    // }
+    // DrawDots();
+  // } else if (type=='w') {
+    // if (Weather()==0) { //jeste neni teplota nactena z meteo
+      // type='c';
     // }
   // }
 }
@@ -272,33 +267,37 @@ void checkWiFiConnection() {
 }
 
 bool TimingISR(void *) {
+  if (prijemDat) return true;
+  
   if (type=='0') {
   } else if ((second()%10)<2) {
-    if (Weather()==1) {
-      type = 'w';
+    changeColorDigitToRandom();
+    type = 'w';
+    if (Weather()==0) { //jeste neni teplota nactena z meteo
+      type='c';
     }
   } else {
     type = 'c';
-    Clock();
-  }
-
-  if (type=='c') {
     DrawTime();
-    if(ClockPoint) {
-      dot1 = 0;
-      dot2 = 0;
+    if (ClockPoint) {
+      dot1 = dot2 = 0;
     } else {
-      dot1 = 1;
-      dot2 = 1;
+      dot1 = dot2 = 1;
     }
-    ClockPoint = (~ClockPoint) & 0x01;
-
     DrawDots();
+    ClockPoint = (~ClockPoint) & 0x01;
   }
-
   return true;
 }
 
+void changeColorDigitToRandom() {
+  Set1Color(1, random(255), random(255), random(255));
+  Set1Color(2, random(255), random(255), random(255));
+  Set1Color(3, random(255), random(255), random(255));
+  Set1Color(4, random(255), random(255), random(255));
+  Set1DotColor(1, random(255), random(255), random(255));
+  Set1DotColor(2, random(255), random(255), random(255));
+}
 
 /*-------- NTP code ----------*/
 
@@ -395,15 +394,17 @@ void printSystemTime(){
 
 
 void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
+  if (!client.connected()) {
     if (lastConnectAttempt == 0 || lastConnectAttempt + connectDelay < millis()) {
       DEBUG_PRINT("Attempting MQTT connection...");
       // Attempt to connect
       if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
         DEBUG_PRINTLN("connected");
         client.subscribe(String(mqtt_topic_weather).c_str());
-        client.subscribe((String(mqtt_base) + "/#").c_str());
+        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str());
+        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_request)).c_str());
+        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str());
+        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str());
       } else {
         lastConnectAttempt = millis();
         DEBUG_PRINT("failed, rc=");
@@ -448,9 +449,7 @@ void sendNetInfoMQTT() {
 
 
 void DrawTime() {
-#ifdef DEBUG_SERIAL
- DEBUG_PRINTLN("Updating Time: %d:%d:%d\n", hours, mins, secs);
-#endif
+ //DEBUG_PRINTLN("Updating Time: %d:%d:%d\n", hours, mins, secs);
  DrawDigit(Digit1, cd[0], cd[1], cd[2], hour() / 10); //Draw the first digit of the hour
  DrawDigit(Digit2, cd[3], cd[4], cd[5], hour() - ((hour() / 10) * 10)); //Draw the second digit of the hour
 
@@ -458,12 +457,6 @@ void DrawTime() {
  DrawDigit(Digit4, cd[9], cd[10], cd[11], minute() - ((minute() / 10) * 10)); //Draw the second digit of the minute
 }
 
-/*
- * Function: DrawDots
- * Used update the dots, the function sets the dots according to the "dot1" and "dot2" global variable
- * Called when dots state or color gets changed
- * Parameters: none
- */
 void DrawDots() {
  if (dot1)pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
  else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
@@ -471,17 +464,6 @@ void DrawDots() {
  else pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
 }
 
-
-/*
- * Function: DrawDigit
- * Lights up segments depending on the value
- * Parameters:
- * - offset: position on the clock (1-4)
- * - r: red component (0-255)
- * - g: green component (0-255)
- * - b: blue component (0-255)
- * - n: value to be drawn (0-9)
- */
 void DrawDigit(int offset, int r, int g, int b, int n) {
  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
   pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
@@ -554,90 +536,18 @@ void startupAnimation() {
 #endif // STARTUP_ANIMATION
 
 
-/*
- * Function: Off
- * Turns every pixel off and sets brightness to 0
- * Called when mode is '0'
- * Parameters: none
- */
 void Off() {
- DEBUG_PRINTLN("Clock is turning OFF");
-  // for (int i = 0; i < NUMPIXELS; i++)  {
-    // pixels.setPixelColor(i, pixels.Color(0, 0, 0));
-  // }
-  pixels.setBrightness(0);
+  DEBUG_PRINTLN("Clock is turning OFF");
+  SetBrightness(0);
+}
+
+void SetBrightness(int br) {
+  DEBUG_PRINTF("Setting brightness to %d%\n", br);
+  pixels.setBrightness(br);
+  //Brightness = br;
   pixels.show();
 }
 
-/*
- * Function: Clock
- * Turns every pixel off and sets brightness to 0
- * Called when mode is '0'
- * Parameters: none
- */
-void Clock() {
-  //DEBUG_PRINTLN("Clock mode");
-  // for (int i = 0; i < NUMPIXELS; i++)  {
-    // pixels.setPixelColor(i, pixels.Color(r, g, b));
-  // }
-  pixels.setBrightness(Brightness);
-  pixels.show();
-}
-
-
-
-/*
- * Function: CallMode
- * Function calls the corresponding function to the type character
- * Called when a new message arrives
- * Parameters: mymode: character
- */
-void CallMode(char mymode) {
-  if (mymode=='0') { //0
-    type = '0';
-    Off();
-  }
-  if (mymode=='c') { //c
-    type = 'c';
-    Clock();
-  }
-  if (mymode=='w') { // w
-    type = 'w';
-    Weather();
-  }
-  if (mymode=='b') {  //b;80
-		ExtractValues(2, 1);
-    SetBrightness(atoi(vals[0]));
-  }
-  if (mymode == 'f') { // f;1;8;255;34
-    ExtractValues(4,3);
-    Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  }
-  if (mymode == 'h') { // h;1;255;0;0
-    ExtractValues(4,3);
-    Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  }
-}
-
-/*
- * Function: SetBrightness
- * Used to set the brightness of the clock
- * Parameters: brightness (0-255)
- */
-void SetBrightness(int brightness) {
-  DEBUG_PRINTF("Setting brightness to %d%\n", brightness);
-  pixels.setBrightness(brightness);
-  Brightness = brightness;
-  pixels.show();
-}
-
-/*
- * Function: ExtractValues
- * Used to extract a given amount of values from the message with a start index
- * Parameters:
- * - startindex: position in the string where to start
- * - valuecount: amount of values to capture
- */
 void ExtractValues(int startindex, int valuecount) {
   int pos = startindex;
   for (int c = 0; c < valuecount; c++) {
@@ -651,22 +561,13 @@ void ExtractValues(int startindex, int valuecount) {
     pos++;
   }
   for (int p = 0; p < valuecount; p++) {
-    DEBUG_PRINT("Extracting: "); DEBUG_PRINTLN(vals[p]);
+    DEBUG_PRINT("Extracting: "); 
+    DEBUG_PRINTLN(vals[p]);
   }
 }
 
-
-/*
- * Function: Set1Color
- * Used to set the color of a single digit
- * Parameters:
- * - mydigit: determines the digit (0-4), a "0" selects all digits
- * - r: red component (0-255)
- * - g: green component (0-255)
- * - b: blue component (0-255)
- */
 void Set1Color(int mydigit, int r, int g, int b) {
-  DEBUG_PRINTF("Setting digit %d to color: r:%d g:%d b:%d\n", mydigit, r, g, b);
+  //DEBUG_PRINTF("Setting digit %d to color: r:%d g:%d b:%d\n", mydigit, r, g, b);
   if (mydigit == 1 || mydigit == 0) {
     cd[0] = r;
     cd[1] = g;
@@ -690,18 +591,8 @@ void Set1Color(int mydigit, int r, int g, int b) {
   pixels.show();
 }
 
-/*
- * Function: Set1DotColor
- * Used to set the color of a single dot
- * Called when mode is "h"
- * Parameters:
- * - dotnr: determines the dot, 1 or 2
- * - r: red component (0-255)
- * - g: green component (0-255)
- * - b: blue component (0-255)
- */
 void Set1DotColor(int dotnr, int r, int g, int b) {
-  DEBUG_PRINTF("Setting dot %d to color: r:%d g:%d b:%d\n", dotnr, r, g, b);
+  //DEBUG_PRINTF("Setting dot %d to color: r:%d g:%d b:%d\n", dotnr, r, g, b);
   if (dotnr == 1) {
     cdo[0] = r;
     cdo[1] = g;
@@ -716,23 +607,17 @@ void Set1DotColor(int dotnr, int r, int g, int b) {
 }
 
 
-/*
-   Function: Weather
-   Extracts temperature readings and display duration from the message,
-   afterwards it draws the temperature symbol(°C) and the temperature
-   Temperatures are in CELCIUS
-   Called when a type is 'w'
-*/
 int Weather() {
-  //DEBUG_PRINTLN("Weather mode");
   int temp = (int)round(temperature);
   
   if (temp==-55) {
-    //DEBUG_PRINTLN("No temperature from Meteo unit yet");
+    DEBUG_PRINTLN("No temperature from Meteo unit yet");
     return 0;
   }
 
-  for (int i = 0; i < NUMPIXELS; i++) pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+  }
 
   GetWeatherColor(temp);
 
@@ -784,13 +669,6 @@ int Weather() {
   return 1;
 }
 
-/*
- * Function: GetWeatherColor
- * Used to get temperature color, high temperature = more yellow, low temperature = more blue
- * Sets the result into the global variables: wr, wg, wb
- * Called by function Weather
- * Parameters: temperature in °C
- */
 void GetWeatherColor(int temp) {
   int R = 255; int G = 255; int B = 255;
   if (temp < -40) {
@@ -832,53 +710,20 @@ bool processJson(String message) {
 
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, json);
+  
+  String e = doc["brightness"];
 
-  int brightness = doc["brightness"];
-  if (brightness>0) {
-    SetBrightness(brightness);
-  } else {
+  DEBUG_PRINTLN(e);
+
+  if (e=="null") {
     Set1Color(1, doc["digit1"][0], doc["digit1"][1], doc["digit1"][2]);
     Set1Color(2, doc["digit2"][0], doc["digit2"][1], doc["digit2"][2]);
     Set1Color(3, doc["digit3"][0], doc["digit3"][1], doc["digit3"][2]);
     Set1Color(4, doc["digit4"][0], doc["digit4"][1], doc["digit4"][2]);
     Set1DotColor(1, doc["dot1"][0], doc["dot1"][1], doc["dot1"][2]);
     Set1DotColor(2, doc["dot2"][0], doc["dot2"][1], doc["dot2"][2]);
+  } else {
+    SetBrightness(doc["brightness"]);
   }
-  
-  // if (mymode=='0') { //0
-    // type = '0';
-    // Off();
-  // }
-  // if (mymode=='c') { //c
-    // type = 'c';
-    // Clock();
-  // }
-  // if (mymode=='w') { // w
-    // type = 'w';
-    // Weather();
-  // }
-  // if (mymode=='b') {  //b;80
-		// ExtractValues(2, 1);
-    // SetBrightness(atoi(vals[0]));
-  // }
-  // if (mymode == 'f') { // f;1;8;255;34
-    // ExtractValues(4,3);
-    // Set1Color(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  // }
-  // if (mymode == 'h') { // h;1;255;0;0
-    // ExtractValues(4,3);
-    // Set1DotColor(receivedChars[2] - '0', atoi(vals[0]), atoi(vals[1]), atoi(vals[2]));
-  // }
-
-
-  // realRed = doc["red"];
-  // DEBUG_PRINTLN(realRed);
-  // realBlue = doc["blue"];
-  // DEBUG_PRINTLN(realBlue);
-  // realGreen = doc["green"];
-  // DEBUG_PRINTLN(realGreen);
-  // analogWrite(redPin, realRed);
-  // analogWrite(bluePin, realBlue);
-  // analogWrite(greenPin, realGreen);
   return true;
 } 
