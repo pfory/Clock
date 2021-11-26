@@ -5,6 +5,8 @@ Timer<> default_timer; // save as above
 
 uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
+float         pressure                      = 0;
+float         humidity                      = 0;
 unsigned char ClockPoint                    = 1;
 bool          prijemDat                     = false;
 
@@ -60,10 +62,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   DEBUG_PRINTLN();
  
-  if (strcmp(topic, mqtt_topic_weather)==0) {
+  if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_temperature)).c_str())==0) {
     DEBUG_PRINT("Temperature from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
     temperature = val.toFloat();
+  } else if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_pressure)).c_str())==0) {
+    DEBUG_PRINT("Pressure from Meteo: ");
+    DEBUG_PRINTLN(val.toFloat());
+    pressure = val.toFloat();
+  } else if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_humidity)).c_str())==0) {
+    DEBUG_PRINT("Humidity from Meteo: ");
+    DEBUG_PRINTLN(val.toFloat());
+    humidity = val.toFloat();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
     Off();
     DEBUG_PRINT("RESTART");
@@ -237,20 +247,6 @@ void loop() {
   //checkWiFiConnection();
   reconnect();
   client.loop();
-
-  // if (type=='c') {
-    // DrawTime();
-    // if (ClockPoint) {
-      // dot1 = dot2 = 0;
-    // } else {
-      // dot1 = dot2 = 1;
-    // }
-    // DrawDots();
-  // } else if (type=='w') {
-    // if (Weather()==0) { //jeste neni teplota nactena z meteo
-      // type='c';
-    // }
-  // }
 }
 
 void checkWiFiConnection() {
@@ -270,10 +266,22 @@ bool TimingISR(void *) {
   if (prijemDat) return true;
   
   if (type=='0') {
+  } else if ((second()%10)<1) {
+    changeColorDigitToRandom();
+    type = 'w';
+    if (Weather(0)==0) { //jeste neni teplota nactena z meteo
+      type='c';
+    }
   } else if ((second()%10)<2) {
     changeColorDigitToRandom();
     type = 'w';
-    if (Weather()==0) { //jeste neni teplota nactena z meteo
+    if (Weather(1)==0) { //jeste neni vlhkost nactena z meteo
+      type='c';
+    }
+  } else if ((second()%10)<3) {
+    changeColorDigitToRandom();
+    type = 'w';
+    if (Weather(2)==0) { //jeste neni tlak nactena z meteo
       type='c';
     }
   } else {
@@ -400,11 +408,8 @@ void reconnect() {
       // Attempt to connect
       if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
         DEBUG_PRINTLN("connected");
-        client.subscribe(String(mqtt_topic_weather).c_str());
-        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str());
-        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_request)).c_str());
-        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str());
-        client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str());
+        client.subscribe((String(mqtt_topic_weather) + "/#").c_str());
+        client.subscribe((String(mqtt_base) + "/#").c_str());
       } else {
         lastConnectAttempt = millis();
         DEBUG_PRINT("failed, rc=");
@@ -607,64 +612,113 @@ void Set1DotColor(int dotnr, int r, int g, int b) {
 }
 
 
-int Weather() {
-  int temp = (int)round(temperature);
-  
-  if (temp==-55) {
-    DEBUG_PRINTLN("No temperature from Meteo unit yet");
-    return 0;
-  }
+int Weather(int type) {
+  if (type==0) { //temperature
+    int temp  = (int)round(temperature);
+    
+    if (temp==-55) {
+      DEBUG_PRINTLN("No temperature from Meteo unit yet");
+      return 0;
+    }
 
-  for (int i = 0; i < NUMPIXELS; i++) {
-    pixels.setPixelColor(i, pixels.Color(0, 0, 0));
-  }
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
 
-  GetWeatherColor(temp);
+    GetWeatherColor(temp);
 
-  int poziceStupen;
-  // °
-  if (temp>-10) {
-    poziceStupen = Digit3;
-  } else {
-    poziceStupen = Digit4;
-  }
-  pixels.setPixelColor(poziceStupen + 0, pixels.Color(wr, wg, wb));
-  pixels.setPixelColor(poziceStupen + 1, pixels.Color(wr, wg, wb));
-  pixels.setPixelColor(poziceStupen + 2, pixels.Color(wr, wg, wb));
-  pixels.setPixelColor(poziceStupen + 3, pixels.Color(wr, wg, wb));
-  //C
-  if (temp>-10) {
-    pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
+    int poziceStupen;
+    // °
+    if (temp>-10) {
+      poziceStupen = Digit3;
+    } else {
+      poziceStupen = Digit4;
+    }
+    //znak stupen
+    pixels.setPixelColor(poziceStupen + 0, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 1, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 2, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 3, pixels.Color(wr, wg, wb));
+    //znak C
+    if (temp>-10) {
+      pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
+    }
+    
+    int t1, t2;
+
+    if (temp >=10) {
+      t1 = abs(temp) / 10;
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit1, wr, wg, wb, t1);
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else if (temp < 10 && temp >= 0) {
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else if (temp < 0 && temp > -10) {
+      pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else {
+      pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
+      t1 = abs(temp) / 10;
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t1);
+      DrawDigit(Digit3, wr, wg, wb, t2);
+    }
+
+    //dots off
+    pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+    pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  } else if (type==1) { //humidity
+    int hum   = (int)round(humidity);
+    if (hum==0) {
+      DEBUG_PRINTLN("No humidity from Meteo unit yet");
+      return 0;
+    }
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
+
+    //rH
+    pixels.setPixelColor(Digit3 + 0, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit3 + 4, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 0, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 1, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
-    pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
-  }
-  
-  int t1, t2;
+    pixels.setPixelColor(Digit4 + 6, pixels.Color(wr, wg, wb));
 
-  if (temp >=10) {
-    t1 = abs(temp) / 10;
-    t2 = abs(temp) % 10;
-    DrawDigit(Digit1, wr, wg, wb, t1);
-    DrawDigit(Digit2, wr, wg, wb, t2);
-  } else if (temp < 10 && temp >= 0) {
-    t2 = abs(temp) % 10;
-    DrawDigit(Digit2, wr, wg, wb, t2);
-  } else if (temp < 0 && temp > -10) {
-    pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
-    t2 = abs(temp) % 10;
-    DrawDigit(Digit2, wr, wg, wb, t2);
-  } else {
-    pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
-    t1 = abs(temp) / 10;
-    t2 = abs(temp) % 10;
-    DrawDigit(Digit2, wr, wg, wb, t1);
-    DrawDigit(Digit3, wr, wg, wb, t2);
+    int h1, h2;
+    h1 = abs(hum) / 10;
+    h2 = abs(hum) % 10;
+    DrawDigit(Digit1, wr, wg, wb, h1);
+    DrawDigit(Digit2, wr, wg, wb, h2);
+    
+  } else { //press
+    int press = (int)round(pressure/100);
+    if (press==0) {
+      DEBUG_PRINTLN("No pressure from Meteo unit yet");
+      return 0;
+    }
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
+    int p1, p2, p3, p4;
+    p1 = abs(press) / 1000;
+    p2 = abs(press) % 1000 / 100;
+    p3 = abs(press) % 100 / 10;
+    p4 = abs(press) % 10;
+    if (p1>0) {
+      DrawDigit(Digit1, wr, wg, wb, p1);
+    }
+    DrawDigit(Digit2, wr, wg, wb, p2);
+    DrawDigit(Digit3, wr, wg, wb, p3);
+    DrawDigit(Digit4, wr, wg, wb, p4);
   }
-
-  //dots off
-  pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
-  pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+ 
   pixels.show();
   return 1;
 }
