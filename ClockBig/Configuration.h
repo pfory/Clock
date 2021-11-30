@@ -15,7 +15,7 @@
 
 //SW name & version
 #define     SW_NAME                       "ClockBig"
-#define     VERSION                       "1.31"
+#define     VERSION                       "1.40"
 
 #define ota
 #define time
@@ -68,7 +68,7 @@
 #define DRD_ADDRESS 0
 
 #define CONFIG_PORTAL_TIMEOUT 60 //jak dlouho zustane v rezimu AP nez se cip resetuje
-#define CONNECT_TIMEOUT 120 //jak dlouho se ceka na spojeni nez se aktivuje config portal
+#define CONNECT_TIMEOUT 5 //jak dlouho se ceka na spojeni nez se aktivuje config portal
 
 static const char* const      mqtt_server                    = "192.168.1.56";
 static const uint16_t         mqtt_port                      = 1883;
@@ -87,9 +87,7 @@ static const char* const      mqtt_topic_load                = "load";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
 
-uint32_t              connectDelay                = 30000; //30s
-uint32_t              lastConnectAttempt          = 0;  
-
+#define CONNECT_DELAY                        5000 //ms
 
 /* ----------------------------------------------LED STRIP CONFIG---------------------------------------------- */
 #define       NUMPIXELS                   30

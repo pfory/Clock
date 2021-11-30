@@ -126,16 +126,13 @@ void setup() {
   wifiManager.setAPCallback(configModeCallback);
   wifiManager.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT);
   wifiManager.setConnectTimeout(CONNECT_TIMEOUT);
+  wifiManager.setBreakAfterConfig(true);
+  wifiManager.setWiFiAutoReconnect(true);
 
   if (drd.detectDoubleReset()) {
     DEBUG_PRINTLN("Double reset detected, starting config portal...");
-    ticker.attach(0.2, tick);
     if (!wifiManager.startConfigPortal(HOSTNAMEOTA)) {
-      DEBUG_PRINTLN("failed to connect and hit timeout");
-      delay(3000);
-      //reset and try again, or maybe put it to deep sleep
-      ESP.reset();
-      delay(5000);
+      DEBUG_PRINTLN("Failed to connect. Use ESP without WiFi.");
     }
   }
 
@@ -159,15 +156,12 @@ void setup() {
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
-  WiFi.printDiag(Serial);
 
   if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
-    DEBUG_PRINTLN("failed to connect and hit timeout");
-    delay(3000);
-    //reset and try again, or maybe put it to deep sleep
-    ESP.reset();
-    delay(5000);
+    DEBUG_PRINTLN("Autoconnect failed connect to WiFi. Use ESP without WiFi.");
   }   
+
+  WiFi.printDiag(Serial);
   
   sendNetInfoMQTT();
   
@@ -221,6 +215,7 @@ void setup() {
   //Brightness = 255;
 
 
+  timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
@@ -229,13 +224,13 @@ void setup() {
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
   
   void * a;
-  sendStatisticMQTT(a);
+  reconnect(a);
    
   DEBUG_PRINTLN(" Ready");
  
   drd.stop();
   
-  DEBUG_PRINTLN(F("Setup end."));
+  DEBUG_PRINTLN(F("SETUP END......................."));
 }
 
 
@@ -244,23 +239,25 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  checkWiFiConnection();
-  reconnect();
   client.loop();
 }
 
-void checkWiFiConnection() {
-  if (WiFi.status() != WL_CONNECTED) {
-    DEBUG_PRINTLN("RESTARTING WIFI CONNECTION!!!!!");
-    if (!wifiManager.autoConnect(AUTOCONNECTNAME, AUTOCONNECTPWD)) { 
-      DEBUG_PRINTLN("failed to connect and hit timeout");
-      delay(3000);
-      //reset and try again, or maybe put it to deep sleep
-      ESP.reset();
-      delay(5000);
-    }   
+bool reconnect(void *) {
+  if (!client.connected()) {
+    DEBUG_PRINT("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
+      client.subscribe((String(mqtt_topic_weather) + "/#").c_str());
+      client.subscribe((String(mqtt_base) + "/#").c_str());
+      DEBUG_PRINTLN("connected");
+    } else {
+      DEBUG_PRINT("failed, rc=");
+      DEBUG_PRINTLN(client.state());
+    }
   }
+  return true;
 }
+
 
 bool TimingISR(void *) {
   if (prijemDat) return true;
@@ -416,25 +413,6 @@ void printSystemTime(){
   printDigits(minute());
   printDigits(second());
   DEBUG_PRINTLN();
-}
-
-
-void reconnect() {
-  if (!client.connected()) {
-    if (lastConnectAttempt == 0 || lastConnectAttempt + connectDelay < millis()) {
-      DEBUG_PRINT("Attempting MQTT connection...");
-      // Attempt to connect
-      if (client.connect(mqtt_base, mqtt_username, mqtt_key)) {
-        DEBUG_PRINTLN("connected");
-        client.subscribe((String(mqtt_topic_weather) + "/#").c_str());
-        client.subscribe((String(mqtt_base) + "/#").c_str());
-      } else {
-        lastConnectAttempt = millis();
-        DEBUG_PRINT("failed, rc=");
-        DEBUG_PRINTLN(client.state());
-      }
-    }
-  }
 }
 
 bool sendStatisticMQTT(void *) {
