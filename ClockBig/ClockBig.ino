@@ -242,6 +242,7 @@ void loop() {
   ArduinoOTA.handle();
 #endif
   client.loop();
+  wifiManager.process();  
 }
 
 bool reconnect(void *) {
@@ -326,9 +327,10 @@ void changeColorDigitToRandom() {
 
 void startConfigPortal(void) {
   DEBUG_PRINTLN("Config portal");
+  wifiManager.setConfigPortalBlocking(false);
   wifiManager.startConfigPortal(HOSTNAMEOTA);
+  //ESP.restart();
 }
-
 
 /*-------- NTP code ----------*/
 
@@ -447,9 +449,10 @@ void sendNetInfoMQTT() {
   DEBUG_PRINTLN(F("Net info"));
 
   SenderClass sender;
-  sender.add("IP",                            WiFi.localIP().toString().c_str());
-  sender.add("MAC",                           WiFi.macAddress());
-  
+  sender.add("IP",              WiFi.localIP().toString().c_str());
+  sender.add("MAC",             WiFi.macAddress());
+  sender.add("AP name",         WiFi.SSID());
+
   DEBUG_PRINTLN(F("Calling MQTT"));
   
   sender.sendMQTT(mqtt_server, mqtt_port, mqtt_username, mqtt_key, mqtt_base);
