@@ -83,6 +83,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     sendNetInfoMQTT();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str())==0) {
     processJson(val);
+  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_config_portal)).c_str())==0) {
+    startConfigPortal();
   }
   prijemDat = false;
 }
@@ -321,6 +323,12 @@ void changeColorDigitToRandom() {
   Set1DotColor(1, r, g, b);
   Set1DotColor(2, r, g, b);
 }
+
+void startConfigPortal(void) {
+  DEBUG_PRINTLN("Config portal");
+  wifiManager.startConfigPortal(HOSTNAMEOTA);
+}
+
 
 /*-------- NTP code ----------*/
 

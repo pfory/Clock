@@ -15,7 +15,7 @@
 
 //SW name & version
 #define     SW_NAME                       "ClockBig"
-#define     VERSION                       "1.40"
+#define     VERSION                       "1.41"
 
 #define ota
 #define time
@@ -83,7 +83,7 @@ static const char* const      mqtt_topic_restart             = "restart";
 static const char* const      mqtt_topic_request             = "request";
 static const char* const      mqtt_topic_netinfo             = "netinfo";
 static const char* const      mqtt_topic_load                = "load";
-
+static const char* const      mqtt_config_portal             = "config";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
 
