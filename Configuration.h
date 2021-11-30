@@ -16,7 +16,7 @@
 #include <Timezone.h>
 
 //SW name & version
-#define     VERSION                       "2.10"
+#define     VERSION                       "2.20"
 
 #define ota
 #define time
@@ -119,17 +119,17 @@ static const char* const      mqtt_base                      = "/home/Clock3";
 static const char* const      mqtt_topic_weather             = "/home/Meteo/Temperature";
 static const char* const      mqtt_brightness                = "brightness";
 static const char* const      mqtt_topic_restart             = "restart";
+static const char* const      mqtt_config_portal             = "config";
+static const char* const      mqtt_topic_netinfo             = "netinfo";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
+#define CONNECT_DELAY                        5000 //ms
+
 #define SHOWTEMP_DELAY                       10000  //zobrazeni teploty na displeji
 #define MSECSHOWTEMP                         1500   //na jak dlouho se teplota zobrazi v milisec
 #ifdef TEMPERATURE_PROBE
 #define MEAS_DELAY                           30000  //mereni teploty
 #define MEAS_TIME                            750    //in ms
 #endif
-
-
-uint32_t              connectDelay                = 30000; //30s
-uint32_t              lastConnectAttempt          = 0;  
 
 #endif
