@@ -72,7 +72,7 @@
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK2
+#define CLOCK1
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
