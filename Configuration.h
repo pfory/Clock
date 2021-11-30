@@ -67,12 +67,12 @@
 #define DRD_ADDRESS 0
 
 #define CONFIG_PORTAL_TIMEOUT 60 //jak dlouho zustane v rezimu AP nez se cip resetuje
-#define CONNECT_TIMEOUT 120 //jak dlouho se ceka na spojeni nez se aktivuje config portal
+#define CONNECT_TIMEOUT 5 //jak dlouho se ceka na spojeni nez se aktivuje config portal
 
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK2
+#define CLOCK3
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"

@@ -473,6 +473,7 @@ void sendNetInfoMQTT() {
   SenderClass sender;
   sender.add("IP",              WiFi.localIP().toString().c_str());
   sender.add("MAC",             WiFi.macAddress());
+  sender.add("AP name",         WiFi.SSID());
   
   DEBUG_PRINTLN(F("Calling MQTT"));
   
