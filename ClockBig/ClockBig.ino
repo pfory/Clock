@@ -244,7 +244,7 @@ void loop() {
 #ifdef ota
   ArduinoOTA.handle();
 #endif
-  //checkWiFiConnection();
+  checkWiFiConnection();
   reconnect();
   client.loop();
 }
@@ -299,12 +299,30 @@ bool TimingISR(void *) {
 }
 
 void changeColorDigitToRandom() {
-  Set1Color(1, random(255), random(255), random(255));
-  Set1Color(2, random(255), random(255), random(255));
-  Set1Color(3, random(255), random(255), random(255));
-  Set1Color(4, random(255), random(255), random(255));
-  Set1DotColor(1, random(255), random(255), random(255));
-  Set1DotColor(2, random(255), random(255), random(255));
+  int r = 0, g = 0, b = 0;
+  while (r<10 && g<10 && b<10) {
+    r = random(255);
+    g = random(255);
+    b = random(255);
+  }
+  Set1Color(1, r, g, b);
+  Set1Color(2, r, g, b);
+  r = 0, g = 0, b = 0;
+  while (r<10 && g<10 && b<10) {
+    r = random(255);
+    g = random(255);
+    b = random(255);
+  }
+  Set1Color(3, r, g, b);
+  Set1Color(4, r, g, b);
+  r = 0, g = 0, b = 0;
+  while (r<10 && g<10 && b<10) {
+    r = random(255);
+    g = random(255);
+    b = random(255);
+  }
+  Set1DotColor(1, r, g, b);
+  Set1DotColor(2, r, g, b);
 }
 
 /*-------- NTP code ----------*/
@@ -694,7 +712,11 @@ int Weather(int type) {
     int h1, h2;
     h1 = abs(hum) / 10;
     h2 = abs(hum) % 10;
-    DrawDigit(Digit1, wr, wg, wb, h1);
+    if (hum==100) {
+      DrawDigit(Digit1, wr, wg, wb, 0);
+    } else {
+      DrawDigit(Digit1, wr, wg, wb, h1);
+    }
     DrawDigit(Digit2, wr, wg, wb, h2);
     
   } else { //press
