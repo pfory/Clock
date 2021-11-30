@@ -8,11 +8,18 @@ const uint8_t SEG_DONE[] = {
 	SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
 	SEG_C | SEG_E | SEG_G,                           // n
 	SEG_A | SEG_D | SEG_E | SEG_F | SEG_G            // E
-	};
+};
+
+const uint8_t SEG_CONF[] = {
+	SEG_D | SEG_E | SEG_G,                           // c
+	SEG_C | SEG_D | SEG_E | SEG_G,                   // o
+	SEG_C | SEG_E | SEG_G,                           // n
+	SEG_A | SEG_E | SEG_F | SEG_G                    // F
+};
 
 const uint8_t SEG_DEG[] = {
 	SEG_A | SEG_B | SEG_F | SEG_G           // 
-	};
+};
 
 int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
 unsigned char ClockPoint                    = 1;
@@ -166,7 +173,7 @@ void setup() {
   DEBUG_PRINTLN(EthernetUdp.localPort());
   DEBUG_PRINTLN("waiting for sync");
   setSyncProvider(getNtpTime);
-  setSyncInterval(60);
+  setSyncInterval(3600);
   
   printSystemTime();
 #endif
@@ -254,6 +261,7 @@ void loop()
   ArduinoOTA.handle();
 #endif
   client.loop();
+  wifiManager.process();
 }
 
 bool TimingISR(void *) {
@@ -272,7 +280,10 @@ bool TimingISR(void *) {
 
 void startConfigPortal(void) {
   DEBUG_PRINTLN("Config portal");
+  tm1637.setSegments(SEG_CONF);
+  wifiManager.setConfigPortalBlocking(false);
   wifiManager.startConfigPortal(HOSTNAMEOTA);
+  //ESP.restart();
 }
 
 /*-------- NTP code ----------*/
