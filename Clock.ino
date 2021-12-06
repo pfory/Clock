@@ -21,11 +21,19 @@ const uint8_t SEG_DEG[] = {
 	SEG_A | SEG_B | SEG_F | SEG_G           // 
 };
 
+const uint8_t SEG_NONE[] = {
+  0,
+  0,
+  0,
+  0
+};
+
 int8_t        TimeDisp[]                    = {0x00,0x00,0x00,0x00};
 unsigned char ClockPoint                    = 1;
 uint32_t      heartBeat                     = 0;
 float         temperature                   = -55;
 float         temperatureDS                 = 0.f;
+bool          zhasnuto                      = false;
 
 TM1637Display tm1637(CLK,DIO);
 
@@ -101,12 +109,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
     DEBUG_PRINT("RESTART");
     ESP.restart();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_brightness)).c_str())==0) {
-    tm1637.setBrightness(round((int)val.toFloat()));
+    if ((int)val.toFloat()==0) {
+      zhasnuto = true;
+    } else {
+      zhasnuto = false;
+      tm1637.setBrightness(round((int)val.toFloat()));
+    }
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str())==0) {
     DEBUG_PRINTLN("NET INFO");
     sendNetInfoMQTT();    
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_config_portal)).c_str())==0) {
     startConfigPortal();
+  } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_config_portal_stop)).c_str())==0) {
+    stopConfigPortal();
   }
 }
 
@@ -268,15 +283,23 @@ bool TimingISR(void *) {
   //printSystemTime();
   int t = hour() * 100 + minute();
 
-  if(ClockPoint) {
-    tm1637.showNumberDecEx(t, 0, true, 4, 0);
+  if (zhasnuto) {
+    tm1637.setSegments(SEG_NONE);
   } else {
-    tm1637.showNumberDecEx(t, 0b01000000, true, 4, 0);
+    if(ClockPoint) {
+      tm1637.showNumberDecEx(t, 0, true, 4, 0);
+    } else {
+      tm1637.showNumberDecEx(t, 0b01000000, true, 4, 0);
+    }
   }
   ClockPoint = (~ClockPoint) & 0x01;
   return true;
 }
 
+void stopConfigPortal(void) {
+  DEBUG_PRINTLN("STOP config portal");
+  wifiManager.stopConfigPortal();
+}
 
 void startConfigPortal(void) {
   DEBUG_PRINTLN("Config portal");
@@ -402,7 +425,7 @@ bool reconnect(void *) {
 }
 
 bool showTemperature(void *) {
-  if (temperature==-55) {
+  if (zhasnuto || temperature==-55) {
     return true;
   }
   

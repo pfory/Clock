@@ -16,7 +16,7 @@
 #include <Timezone.h>
 
 //SW name & version
-#define     VERSION                       "2.20"
+#define     VERSION                       "2.21"
 
 #define ota
 #define time
@@ -72,7 +72,7 @@
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK1
+#define CLOCK2
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
@@ -121,6 +121,7 @@ static const char* const      mqtt_brightness                = "brightness";
 static const char* const      mqtt_topic_restart             = "restart";
 static const char* const      mqtt_config_portal             = "config";
 static const char* const      mqtt_topic_netinfo             = "netinfo";
+static const char* const      mqtt_config_portal_stop        = "disconfig";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
 #define CONNECT_DELAY                        5000 //ms
