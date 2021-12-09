@@ -23,15 +23,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   DEBUG_PRINTLN();
  
-  if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_temperature)).c_str())==0) {
+  if (strcmp(topic, (String(mqtt_base_weather) + "/" + String(mqtt_topic_temperature)).c_str())==0) {
     DEBUG_PRINT("Temperature from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
     temperature = val.toFloat();
-  } else if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_pressure)).c_str())==0) {
+  } else if (strcmp(topic, (String(mqtt_base_weather) + "/" + String(mqtt_topic_pressure)).c_str())==0) {
     DEBUG_PRINT("Pressure from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
     pressure = val.toFloat();
-  } else if (strcmp(topic, (String(mqtt_topic_weather) + "/" + String(mqtt_topic_humidity)).c_str())==0) {
+  } else if (strcmp(topic, (String(mqtt_base_weather) + "/" + String(mqtt_topic_humidity)).c_str())==0) {
     DEBUG_PRINT("Humidity from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
     humidity = val.toFloat();
@@ -508,11 +508,16 @@ bool processJson(String message) {
 bool reconnect(void *) {
   if (!client.connected()) {
     DEBUG_PRINT("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect(mqtt_base, mqtt_username, mqtt_key, (String(mqtt_base) + "/LWT").c_str(), 2, true, "Dead", false)) {
-      client.subscribe((String(mqtt_topic_weather) + "/#").c_str());
-      client.subscribe((String(mqtt_base) + "/#").c_str());
-      client.publish((String(mqtt_base) + "/connected").c_str(), "");
+    if (client.connect(mqtt_base, mqtt_username, mqtt_key, (String(mqtt_base) + "/LWT").c_str(), 2, true, "offline", true)) {
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str());
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str());
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal_stop)).c_str());
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal)).c_str());
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str());
+      client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_temperature)).c_str());
+      client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_pressure)).c_str());
+      client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_humidity)).c_str());
+      client.publish((String(mqtt_base) + "/LWT").c_str(), "online", true);
       DEBUG_PRINTLN("connected");
     } else {
       DEBUG_PRINT("failed, rc=");
