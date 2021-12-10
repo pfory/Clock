@@ -1,39 +1,26 @@
-//ESP8266-01 FLASH SIZE 1M Fs None !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//WEMOS 4MB
-
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
-#include "TM1637Display.h"
-#include <timer.h>
-#include <Ticker.h>
-#include <DoubleResetDetector.h>      //https://github.com/khoih-prog/ESP_DoubleResetDetector
-#include <PubSubClient.h>
-#include <TimeLib.h>
-#include <Timezone.h>
+//ESP8266-01 FLASH SIZE 1M Fs None !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//WEMOS 4MB
+
+#include <ArduinoJson.h>
+#include <TM1637Display.h>
 
 //SW name & version
-#define     VERSION                       "2.31"
+#define     VERSION                       "2.32"
 
 #define ota
 #define time
+#define timers
 #define verbose
+#define wifidebug
 
-#ifdef serverHTTP
-#include <ESP8266WebServer.h>
-#endif
-
-#define CFGFILE "/config.json"
-
-#define CONFIG_PORTAL_TIMEOUT 60 //jak dlouho zustane v rezimu AP nez se cip resetuje
-#define CONNECT_TIMEOUT 5 //jak dlouho se ceka na spojeni nez se aktivuje config portal
 
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK2
+#define CLOCK3
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
