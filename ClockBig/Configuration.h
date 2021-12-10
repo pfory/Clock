@@ -20,9 +20,7 @@
 #define ota
 #define time
 #define verbose
-
-#define CONFIG_PORTAL_TIMEOUT 60 //jak dlouho zustane v rezimu AP nez se cip resetuje
-#define CONNECT_TIMEOUT 5 //jak dlouho se ceka na spojeni nez se aktivuje config portal
+#define wifidebug
 
 static const char* const      mqtt_server                    = "192.168.1.56";
 static const uint16_t         mqtt_port                      = 1883;

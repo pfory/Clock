@@ -520,7 +520,10 @@ bool reconnect(void *) {
       client.publish((String(mqtt_base) + "/LWT").c_str(), "online", true);
       DEBUG_PRINTLN("connected");
     } else {
-      DEBUG_PRINT("failed, rc=");
+      DEBUG_PRINT("disconected.");
+      DEBUG_PRINT(" Wifi status:");
+      DEBUG_PRINT(WiFi.status());
+      DEBUG_PRINT(" Client status:");
       DEBUG_PRINTLN(client.state());
     }
   }
