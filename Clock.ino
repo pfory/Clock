@@ -252,6 +252,7 @@ bool reconnect(void *) {
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str());
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal_stop)).c_str());
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal)).c_str());
+      client.subscribe((String(mqtt_base) + "/" + String(mqtt_brightness)).c_str());
       client.subscribe(String(mqtt_topic_weather).c_str());
       client.publish((String(mqtt_base) + "/LWT").c_str(), "online", true);
       DEBUG_PRINTLN("connected");
