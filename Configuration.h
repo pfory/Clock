@@ -8,7 +8,7 @@
 #include <TM1637Display.h>
 
 //SW name & version
-#define     VERSION                       "2.32"
+#define     VERSION                       "2.33"
 
 #define ota
 #define time
@@ -20,7 +20,7 @@
 //#define CLOCK1 //v obyvaku
 //#define CLOCK2 //nahore v loznici
 //#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK3
+#define CLOCK2
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"

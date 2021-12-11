@@ -127,7 +127,9 @@ void setup() {
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
   timer.every(SHOWTEMP_DELAY, showTemperature);
-
+#ifdef TEMPERATURE_PROBE
+  timer.every(SENDSTAT_DELAY, sendTemperatureMQTT);
+#endif
   void * a;
   reconnect(a);
   sendNetInfoMQTT();
@@ -223,6 +225,21 @@ bool meass(void *) {
   
   digitalWrite(BUILTIN_LED, HIGH);
 
+  return true;
+}
+#endif
+
+#ifdef TEMPERATURE_PROBE
+bool sendTemperatureMQTT(void *) {
+  digitalWrite(BUILTIN_LED, LOW);
+  DEBUG_PRINTLN(F("Temperature"));
+
+  if (!client.connected()) {
+    DEBUG_PRINTLN(F("disconnected."));
+  } else {
+    client.publish((String(mqtt_base) + "/Temperature").c_str(), String(temperatureDS).c_str());
+  }
+  digitalWrite(BUILTIN_LED, HIGH);
   return true;
 }
 #endif
