@@ -151,6 +151,7 @@ void loop()
 #endif
   client.loop();
   wifiManager.process();
+  drd.loop();
 }
 
 bool TimingISR(void *) {

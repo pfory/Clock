@@ -14,7 +14,6 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     SW_NAME                       "ClockBig"
 #define     VERSION                       "1.50"
 
 #define ota
@@ -22,11 +21,28 @@
 #define verbose
 #define wifidebug
 
+//#define CLOCK1 //v obyvaku
+//#define CLOCK2 //nahore v loznici
+//#define CLOCK3 //v dilne ESP8266-01
+#define CLOCK2
+
+#ifdef CLOCK1
+#define     SW_NAME                       "ClockBig"
+#endif
+#ifdef CLOCK2
+#define     SW_NAME                       "ClockBig2"
+#endif
+
 static const char* const      mqtt_server                    = "192.168.1.56";
 static const uint16_t         mqtt_port                      = 1883;
 static const char* const      mqtt_username                  = "datel";
 static const char* const      mqtt_key                       = "hanka12";
+#ifdef CLOCK1
 static const char* const      mqtt_base                      = "/home/ClockBig";
+#endif
+#ifdef CLOCK2
+static const char* const      mqtt_base                      = "/home/ClockBig2";
+#endif
 static const char* const      mqtt_base_weather             = "/home/Meteo";
 static const char* const      mqtt_topic_temperature         = "Temperature";
 static const char* const      mqtt_topic_pressure            = "Press";
