@@ -76,28 +76,26 @@ int wb = 255;
 
 void setup() {
   preSetup();
+  ticker.detach();
     
   pixels.begin();
   startupAnimation();
   type = 'c';
   //Brightness = 255;
 
-  void * a;
+  
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
   client.publish((String(mqtt_base) + "/mqtt_topic_request").c_str(), "setup");
   
+  void * a=0;
   reconnect(a);
   sendNetInfoMQTT();
   sendStatisticMQTT(a);
    
-  DEBUG_PRINTLN(" Ready");
- 
-  drd.stop();
-  
-  DEBUG_PRINTLN(F("SETUP END......................."));
+  DEBUG_PRINTLN(F("SETUP END."));
 }
 
 
@@ -108,6 +106,7 @@ void loop() {
 #endif
   client.loop();
   wifiManager.process();  
+  drd.loop();
 }
 
 bool TimingISR(void *) {
@@ -188,42 +187,81 @@ void DrawDots() {
 }
 
 void DrawDigit(int offset, int r, int g, int b, int n) {
- if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
+#ifdef CLOCK1
+  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
   pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
+  }
+  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
   pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
+  }
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
   pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
+  }
+  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
   pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
+  }
+  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
   pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
+  }
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
   pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
- }
- if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
+  }
+  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
   pixels.setPixelColor(6 + offset, pixels.Color(r, g, b));
- } else {
+  } else {
   pixels.setPixelColor(6 + offset, pixels.Color(0, 0, 0));
- }
- pixels.show();
+  }
+#endif
+#ifdef CLOCK2
+  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
+  pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 0 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //BOTTOM
+  pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
+  pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
+  pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
+  pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
+  pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
+  }
+  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
+  pixels.setPixelColor(6 + offset, pixels.Color(r, g, b));
+  } else {
+  pixels.setPixelColor(6 + offset, pixels.Color(0, 0, 0));
+  }
+#endif
+  pixels.show();
 }
 
 

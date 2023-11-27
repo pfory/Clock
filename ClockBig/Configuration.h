@@ -3,7 +3,8 @@
 
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
-#include <timer.h>
+//#include <timer.h>
+#include <arduino-timer.h>
 #include <Ticker.h>
 #include <DoubleResetDetector.h>      //https://github.com/khoih-prog/ESP_DoubleResetDetector
 //#include "Sender.h"
@@ -17,20 +18,21 @@
 #define     VERSION                       "1.50"
 
 #define ota
-#define time
+#define cas
+#define timers
 #define verbose
 #define wifidebug
 
-//#define CLOCK1 //v obyvaku
-//#define CLOCK2 //nahore v loznici
-//#define CLOCK3 //v dilne ESP8266-01
-#define CLOCK2
+//#define CLOCK1 //v loznici
+#define CLOCK2 //v koupelne
 
 #ifdef CLOCK1
 #define     SW_NAME                       "ClockBig"
+#define     PIN                           D5 // Pin of the led strip, default 2 (that is D4 on the wemos)
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "ClockBig2"
+#define     PIN                           D5
 #endif
 
 static const char* const      mqtt_server                    = "192.168.1.56";
@@ -65,8 +67,6 @@ static const char* const      mqtt_config_portal_stop        = "disconfig";
 #define       Digit2                      7
 #define       Digit3                      16
 #define       Digit4                      23
-
-#define       PIN                         5 // Pin of the led strip, default 2 (that is D4 on the wemos)
 
 // uncomment the line below to enable the startup animation
 #define       STARTUP_ANIMATION
