@@ -4,6 +4,21 @@ float         temperature                   = -55;
 float         pressure                      = 0;
 float         humidity                      = 0;
 unsigned char ClockPoint                    = 1;
+#ifdef TEMPERATURE_PROBE
+float         temperatureDS                 = 0.f;
+#endif
+#ifdef LIGHTSENSOR
+int           jas[10];
+int           jas_prumer                    = 255;
+int           jas_counter                   = 0;
+#endif
+
+#ifdef TEMPERATURE_PROBE
+OneWire onewire(ONE_WIRE_BUS); // pin for onewire DALLAS bus
+DallasTemperature dsSensors(&onewire);
+bool                  DS18B20Present      = false;
+#endif
+
 
 const byte numChars = 50;
 char receivedChars[numChars]; // an array to store the received data
@@ -12,12 +27,11 @@ ADC_MODE(ADC_VCC);
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
-  char * pEnd;
   String val =  String();
   DEBUG_PRINT("\nMessage arrived [");
   DEBUG_PRINT(topic);
   DEBUG_PRINT("] ");
-  for (int i=0;i<length;i++) {
+  for (unsigned int i=0;i<length;i++) {
     DEBUG_PRINT((char)payload[i]);
     val += (char)payload[i];
   }
@@ -83,7 +97,25 @@ void setup() {
   type = 'c';
   //Brightness = 255;
 
-  
+#ifdef TEMPERATURE_PROBE
+  Wire.begin();
+  DEBUG_PRINT("Temperature probe DS18B20: ");
+  dsSensors.begin(); 
+  if (dsSensors.getDeviceCount()>0) {
+    DEBUG_PRINTLN("Sensor found.");
+    DS18B20Present = true;
+    dsSensors.setResolution(12);
+    dsSensors.setWaitForConversion(false);
+  } else {
+    DEBUG_PRINTLN("Sensor missing!!!!");
+  }
+
+  timer.every(MEAS_DELAY, meass);
+#endif
+
+#ifdef LIGHTSENSOR
+  timer.every(SHOW_DISPLAY, change_brightness);
+#endif
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
@@ -109,6 +141,26 @@ void loop() {
   drd.loop();
 }
 
+#ifdef LIGHTSENSOR
+bool change_brightness(void *) {
+  if (jas_counter < 10) {
+    //jas[jas_counter] = map(analogRead(A0), 0, 1024, 10, 255);
+    jas[jas_counter] = map(ESP.getVcc(), 3000, 3600, 255, 10);
+    jas_counter++;
+  } else {
+    jas_prumer = 0;
+    for (int i=0; i<10; i++) {
+      jas_prumer+=jas[i];
+      jas[i]=0;
+    }
+    
+    jas_prumer /= 10;
+    jas_counter = 0;
+  }
+  return true;
+}
+#endif
+
 bool TimingISR(void *) {
   if (type=='0') {
   } else if ((second()%10)<1) {
@@ -117,6 +169,7 @@ bool TimingISR(void *) {
     if (Weather(0)==0) { //jeste neni teplota nactena z meteo
       type='c';
     }
+#ifdef CLOCK1    
   } else if ((second()%10)<2) {
     changeColorDigitToRandom();
     type = 'w';
@@ -126,9 +179,10 @@ bool TimingISR(void *) {
   } else if ((second()%10)<3) {
     changeColorDigitToRandom();
     type = 'w';
-    if (Weather(2)==0) { //jeste neni tlak nactena z meteo
+    if (Weather(2)==0) { //jeste neni tlak nacteny z meteo
       type='c';
     }
+#endif
   } else {
     type = 'c';
     DrawTime();
@@ -225,32 +279,32 @@ void DrawDigit(int offset, int r, int g, int b, int n) {
   }
 #endif
 #ifdef CLOCK2
-  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
+  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
   pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //BOTTOM
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
   pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
+  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
   pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
+  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
   pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
+  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
   pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
   }
-  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
+  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
   pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
   } else {
   pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
@@ -394,15 +448,28 @@ int Weather(int type) {
     pixels.setPixelColor(poziceStupen + 0, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(poziceStupen + 1, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(poziceStupen + 2, pixels.Color(wr, wg, wb));
+#ifdef CLOCK1
     pixels.setPixelColor(poziceStupen + 3, pixels.Color(wr, wg, wb));
+#endif    
+#ifdef CLOCK2
+    pixels.setPixelColor(poziceStupen + 6, pixels.Color(wr, wg, wb));
+#endif    
     //znak C
     if (temp>-10) {
+#ifdef CLOCK1      
       pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
+#endif
+#ifdef CLOCK2
+      pixels.setPixelColor(Digit4 + 1, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
+#endif
     }
-    
+
     int t1, t2;
 
     if (temp >=10) {
@@ -446,7 +513,6 @@ int Weather(int type) {
     pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(Digit4 + 6, pixels.Color(wr, wg, wb));
-
     int h1, h2;
     h1 = abs(hum) / 10;
     h2 = abs(hum) % 10;
@@ -537,11 +603,37 @@ bool processJson(String message) {
     Set1DotColor(1, doc["dot1"][0], doc["dot1"][1], doc["dot1"][2]);
     Set1DotColor(2, doc["dot2"][0], doc["dot2"][1], doc["dot2"][2]);
   } else {
+//#ifdef CLOCK1    
     SetBrightness(doc["brightness"]);
+//#endif
   }
   return true;
 } 
 
+
+#ifdef TEMPERATURE_PROBE
+bool meass(void *) {
+  digitalWrite(LED_BUILTIN, LOW);
+  
+  if (DS18B20Present) {
+    dsSensors.requestTemperatures(); // Send the command to get temperatures
+    delay(MEAS_TIME);
+    if (dsSensors.getCheckForConversion()==true) {
+      temperatureDS = dsSensors.getTempCByIndex(0);
+    }
+    DEBUG_PRINTLN("-------------");
+    DEBUG_PRINT("Temperature DS18B20: ");
+    DEBUG_PRINT(temperatureDS); 
+    DEBUG_PRINTLN(" *C");
+  } else {
+    temperatureDS = 0.0; //dummy
+  }
+  
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  return true;
+}
+#endif
 
 bool reconnect(void *) {
   if (!client.connected()) {

@@ -33,6 +33,14 @@
 #ifdef CLOCK2
 #define     SW_NAME                       "ClockBig2"
 #define     PIN                           D5
+#define     TEMPERATURE_PROBE
+#define     LIGHTSENSOR
+#define     ONE_WIRE_BUS                  D7
+#endif
+
+#ifdef TEMPERATURE_PROBE
+#include <Wire.h>
+#include <DallasTemperature.h>
 #endif
 
 static const char* const      mqtt_server                    = "192.168.1.56";
@@ -45,7 +53,7 @@ static const char* const      mqtt_base                      = "/home/ClockBig";
 #ifdef CLOCK2
 static const char* const      mqtt_base                      = "/home/ClockBig2";
 #endif
-static const char* const      mqtt_base_weather             = "/home/Meteo";
+static const char* const      mqtt_base_weather              = "/home/Meteo";
 static const char* const      mqtt_topic_temperature         = "Temperature";
 static const char* const      mqtt_topic_pressure            = "Press";
 static const char* const      mqtt_topic_humidity            = "Humidity";
@@ -57,21 +65,26 @@ static const char* const      mqtt_config_portal             = "config";
 static const char* const      mqtt_config_portal_stop        = "disconfig";
 
 #define SENDSTAT_DELAY                       60000  //poslani statistiky kazdou minutu
-
 #define CONNECT_DELAY                        5000 //ms
+#ifdef TEMPERATURE_PROBE
+#define MEAS_DELAY                           30000  //mereni teploty
+#define MEAS_TIME                            750    //in ms
+#endif
+#ifdef LIGHTSENSOR
+#define SHOW_DISPLAY                         250   //refresh displeje
+#endif
 
 /* ----------------------------------------------LED STRIP CONFIG---------------------------------------------- */
-#define       NUMPIXELS                   30
+#define       NUMPIXELS                     30
 //offsets
-#define       Digit1                      0
-#define       Digit2                      7
-#define       Digit3                      16
-#define       Digit4                      23
+#define       Digit1                         0
+#define       Digit2                         7
+#define       Digit3                        16
+#define       Digit4                        23
 
 // uncomment the line below to enable the startup animation
 #define       STARTUP_ANIMATION
 
 #include <fce.h>
-
 
 #endif
