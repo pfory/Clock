@@ -15,7 +15,7 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     VERSION                       "1.50"
+#define     VERSION                       "1.51"
 
 #define ota
 #define cas
@@ -33,9 +33,8 @@
 #ifdef CLOCK2
 #define     SW_NAME                       "ClockBig2"
 #define     PIN                           D5
-#define     TEMPERATURE_PROBE
+//#define     SHT40
 #define     LIGHTSENSOR
-#define     ONE_WIRE_BUS                  D7
 #endif
 
 #ifdef TEMPERATURE_PROBE

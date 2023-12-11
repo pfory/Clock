@@ -144,8 +144,15 @@ void loop() {
 #ifdef LIGHTSENSOR
 bool change_brightness(void *) {
   if (jas_counter < 10) {
-    //jas[jas_counter] = map(analogRead(A0), 0, 1024, 10, 255);
-    jas[jas_counter] = map(ESP.getVcc(), 3000, 3600, 255, 10);
+    DEBUG_PRINT("Napětí:");
+    DEBUG_PRINT(ESP.getVcc());
+    int j = map(ESP.getVcc(), 2860, 3500, 1, 255);
+    DEBUG_PRINT(" Jas:");
+    DEBUG_PRINT(j);
+    j = constrain(j,1,255);
+    DEBUG_PRINT(" Jas constraint:");
+    DEBUG_PRINTLN(j);
+    jas[jas_counter] = j;
     jas_counter++;
   } else {
     jas_prumer = 0;
@@ -156,6 +163,9 @@ bool change_brightness(void *) {
     
     jas_prumer /= 10;
     jas_counter = 0;
+    DEBUG_PRINT("Prumer:");
+    DEBUG_PRINTLN(jas_prumer);
+    SetBrightness(jas_prumer);
   }
   return true;
 }
@@ -463,10 +473,10 @@ int Weather(int type) {
       pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
 #endif
 #ifdef CLOCK2
+      pixels.setPixelColor(Digit4 + 0, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 1, pixels.Color(wr, wg, wb));
-      pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
-      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
 #endif
     }
 
@@ -481,11 +491,21 @@ int Weather(int type) {
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t2);
     } else if (temp < 0 && temp > -10) {
+#ifdef CLOCK1      
       pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
+#endif
+#ifdef CLOCK2
+      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
+#endif
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t2);
     } else {
+#ifdef CLOCK1      
       pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
+#endif
+#ifdef CLOCK2
+      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
+#endif
       t1 = abs(temp) / 10;
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t1);
@@ -603,9 +623,9 @@ bool processJson(String message) {
     Set1DotColor(1, doc["dot1"][0], doc["dot1"][1], doc["dot1"][2]);
     Set1DotColor(2, doc["dot2"][0], doc["dot2"][1], doc["dot2"][2]);
   } else {
-//#ifdef CLOCK1    
+#ifdef CLOCK1    
     SetBrightness(doc["brightness"]);
-//#endif
+#endif
   }
   return true;
 } 
