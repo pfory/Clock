@@ -11,6 +11,7 @@ float         temperatureDS                 = 0.f;
 int           jas[10];
 int           jas_prumer                    = 255;
 int           jas_counter                   = 0;
+int           jas_old                       = 0;
 #endif
 
 #ifdef TEMPERATURE_PROBE
@@ -19,6 +20,89 @@ DallasTemperature dsSensors(&onewire);
 bool                  DS18B20Present      = false;
 #endif
 
+
+#ifdef serverHTTP
+// Get an architecture of compiled
+String getArch(PageArgument& args) {
+#if defined(ARDUINO_ARCH_ESP8266)
+  return "ESP8266";
+#elif defined(ARDUINO_ARCH_ESP32)
+  return "ESP32";
+#endif
+}
+
+
+// Web page structure is described as follows.
+// It contains two tokens as {{STYLE}} and {{LEDIO}} also 'led'
+//  parameter for GET method.
+static const char _PAGE_MAIN[] PROGMEM = R"(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ARCH}} Clock</title>
+  <style type="text/css">
+  {{STYLE}}
+  </style>
+</head>
+<body>
+  <p>{{ARCH}} Clock</p>
+  <div class="one">
+  <p><a class="button" href="/?led=on">ON</a></p>
+  <p><a class="button" href="/?led=off">OFF</a></p>
+  </div>
+</body>
+</html>
+)";
+
+// A style description can be separated from the page structure.
+// It expands from {{STYLE}} caused by declaration of 'Button' PageElement.
+static const char _STYLE_BUTTON[] PROGMEM = R"(
+body {-webkit-appearance:none;}
+p {
+  font-family:'Arial',sans-serif;
+  font-weight:bold;
+  text-align:center;
+}
+.button {
+  display:block;
+  width:150px;
+  margin:10px auto;
+  padding:7px 13px;
+  text-align:center;
+  background:#668ad8;
+  font-size:20px;
+  color:#ffffff;
+  white-space:nowrap;
+  box-sizing:border-box;
+  -webkit-box-sizing:border-box;
+  -moz-box-sizing:border-box;
+}
+.button:active {
+  font-weight:bold;
+  vertical-align:top;
+  padding:8px 13px 6px;
+}
+.one a {text-decoration:none;}
+.img {text-align:center;}
+)";
+
+const char* username = "admin";
+const char* password = "espadmin";
+
+#if defined(ARDUINO_ARCH_ESP8266)
+ESP8266WebServer  Server;
+#elif defined(ARDUINO_ARCH_ESP32)
+WebServer  Server;
+#endif
+
+// Page construction
+PageElement Button(FPSTR(_PAGE_MAIN), {
+  {"STYLE", [](PageArgument& arg) { return String(FPSTR(_STYLE_BUTTON)); }},
+  {"ARCH", getArch }
+});
+PageBuilder   ("/", {Button});
+#endif
 
 const byte numChars = 50;
 char receivedChars[numChars]; // an array to store the received data
@@ -113,9 +197,13 @@ void setup() {
   timer.every(MEAS_DELAY, meass);
 #endif
 
-#ifdef LIGHTSENSOR
-  timer.every(SHOW_DISPLAY, change_brightness);
+#ifdef serverHTTP
+  MainPage.authentication(username, password, DIGEST_AUTH, "Clock");
+  MainPage.transferEncoding(PageBuilder::TransferEncoding_t::ByteStream);
+  MainPage.insert(Server);
+  Server.begin();
 #endif
+
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
   timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
@@ -139,26 +227,36 @@ void loop() {
   client.loop();
   wifiManager.process();  
   drd.loop();
+#ifdef serverHTTP
+  Server.handleClient();
+#endif
 }
 
 #ifdef LIGHTSENSOR
-bool change_brightness(void *) {
-  if (jas_counter < 10) {
-    DEBUG_PRINT("Napětí:");
-    DEBUG_PRINT(ESP.getVcc());
-    int j = map(ESP.getVcc(), 2860, 3500, 1, 255);
-    DEBUG_PRINT(" Jas:");
-    DEBUG_PRINT(j);
-    j = constrain(j,1,255);
-    DEBUG_PRINT(" Jas constraint:");
+void change_brightness() {
+  DEBUG_PRINT("Napětí:");
+  DEBUG_PRINT(ESP.getVcc());
+  int j = map(ESP.getVcc(), 2860, 3400, 1, 255);
+  DEBUG_PRINT(" Jas:");
+  DEBUG_PRINT(j);
+  j = constrain(j,1,255);
+  DEBUG_PRINT(" Jas constraint:");
+  DEBUG_PRINTLN(j);
+  jas[jas_counter] = j;
+  jas_counter++;
+
+  if (j > jas_old + 50 || j < jas_old - 50) { //skokova zmena
+    DEBUG_PRINT("SKOK na:");
     DEBUG_PRINTLN(j);
-    jas[jas_counter] = j;
-    jas_counter++;
-  } else {
+    SetBrightness(j);
+    jas_counter = 0;
+  }
+  jas_old = j;
+
+  if (jas_counter == 10) {
     jas_prumer = 0;
     for (int i=0; i<10; i++) {
       jas_prumer+=jas[i];
-      jas[i]=0;
     }
     
     jas_prumer /= 10;
@@ -167,27 +265,29 @@ bool change_brightness(void *) {
     DEBUG_PRINTLN(jas_prumer);
     SetBrightness(jas_prumer);
   }
-  return true;
 }
 #endif
 
 bool TimingISR(void *) {
+#ifdef LIGHTSENSOR
+  change_brightness();
+#endif
   if (type=='0') {
   } else if ((second()%10)<1) {
-    changeColorDigitToRandom();
+    changeColorDigitToRandom(0);
     type = 'w';
     if (Weather(0)==0) { //jeste neni teplota nactena z meteo
       type='c';
     }
 #ifdef CLOCK1    
   } else if ((second()%10)<2) {
-    changeColorDigitToRandom();
+    //changeColorDigitToRandom(0);
     type = 'w';
     if (Weather(1)==0) { //jeste neni vlhkost nactena z meteo
       type='c';
     }
   } else if ((second()%10)<3) {
-    changeColorDigitToRandom();
+    //changeColorDigitToRandom(0);
     type = 'w';
     if (Weather(2)==0) { //jeste neni tlak nacteny z meteo
       type='c';
@@ -207,127 +307,156 @@ bool TimingISR(void *) {
   return true;
 }
 
-void changeColorDigitToRandom() {
+void changeColorDigitToRandom(int typ) {
+  //typ = 0 - všechny číslice stejná barva
+  //typ = 1 - stejná barva dvou číslice
+  //typ = 2 - každá číslice jiná barva
   int r = 0, g = 0, b = 0;
-  while (r<10 && g<10 && b<10) {
-    r = random(255);
-    g = random(255);
-    b = random(255);
+  if (typ == 0) {
+    getRandomColor(&r, &g, &b);
+    Set1Color(1, r, g, b);
+    Set1Color(2, r, g, b);
+    Set1Color(3, r, g, b);
+    Set1Color(4, r, g, b);
+    Set1DotColor(1, r, g, b);
+    Set1DotColor(2, r, g, b);
+  } else if (typ == 1) {
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(1, r, g, b);
+    Set1Color(2, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(3, r, g, b);
+    Set1Color(4, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1DotColor(1, r, g, b);
+    Set1DotColor(2, r, g, b);
+  } else if (typ == 2) {
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(1, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(2, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(3, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1Color(4, r, g, b);
+    r = 0, g = 0, b = 0;
+    getRandomColor(&r, &g, &b);
+    Set1DotColor(1, r, g, b);
+    Set1DotColor(2, r, g, b);
   }
-  Set1Color(1, r, g, b);
-  Set1Color(2, r, g, b);
-  r = 0, g = 0, b = 0;
-  while (r<10 && g<10 && b<10) {
-    r = random(255);
-    g = random(255);
-    b = random(255);
+}
+
+void getRandomColor(int *r, int *g, int *b) {
+  while (*r<10 && *g<10 && *b<10) {
+    *r = random(255);
+    *g = random(255);
+    *b = random(255);
   }
-  Set1Color(3, r, g, b);
-  Set1Color(4, r, g, b);
-  r = 0, g = 0, b = 0;
-  while (r<10 && g<10 && b<10) {
-    r = random(255);
-    g = random(255);
-    b = random(255);
-  }
-  Set1DotColor(1, r, g, b);
-  Set1DotColor(2, r, g, b);
 }
 
 void DrawTime() {
- //DEBUG_PRINTLN("Updating Time: %d:%d:%d\n", hours, mins, secs);
- DrawDigit(Digit1, cd[0], cd[1], cd[2], hour() / 10); //Draw the first digit of the hour
- DrawDigit(Digit2, cd[3], cd[4], cd[5], hour() - ((hour() / 10) * 10)); //Draw the second digit of the hour
-
- DrawDigit(Digit3, cd[6], cd[7], cd[8], minute() / 10); //Draw the first digit of the minute
- DrawDigit(Digit4, cd[9], cd[10], cd[11], minute() - ((minute() / 10) * 10)); //Draw the second digit of the minute
+  //DEBUG_PRINTLN("Updating Time: %d:%d:%d\n", hours, mins, secs);
+  DrawDigit(Digit1, cd[0], cd[1], cd[2], hour() / 10); //Draw the first digit of the hour
+  DrawDigit(Digit2, cd[3], cd[4], cd[5], hour() - ((hour() / 10) * 10)); //Draw the second digit of the hour
+  DrawDigit(Digit3, cd[6], cd[7], cd[8], minute() / 10); //Draw the first digit of the minute
+  DrawDigit(Digit4, cd[9], cd[10], cd[11], minute() - ((minute() / 10) * 10)); //Draw the second digit of the minute
 }
 
 void DrawDots() {
- if (dot1)pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
- else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
- if (dot2)pixels.setPixelColor(Digit3 - 2, pixels.Color(cdo[3], cdo[4], cdo[5]));
- else pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+  if (dot1)pixels.setPixelColor(Digit3 - 1, pixels.Color(cdo[0], cdo[1], cdo[2]));
+  else pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  if (dot2)pixels.setPixelColor(Digit3 - 2, pixels.Color(cdo[3], cdo[4], cdo[5]));
+  else pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
 }
 
 void DrawDigit(int offset, int r, int g, int b, int n) {
 #ifdef CLOCK1
   if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
-  pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
+    setPC(0 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
+    setPC(0 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
-  pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
+    setPC(1 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
+    setPC(1 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
-  pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
+    setPC(2 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
+    setPC(2 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
-  pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
+    setPC(3 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
+    setPC(3 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
-  pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
+    setPC(4 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
+    setPC(4 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
-  pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
+    setPC(5 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
+    setPC(5 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
-  pixels.setPixelColor(6 + offset, pixels.Color(r, g, b));
+    setPC(6 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(6 + offset, pixels.Color(0, 0, 0));
+    setPC(6 + offset, 0, 0, 0);
   }
 #endif
-#ifdef CLOCK2
+#if defined CLOCK2 || defined CLOCK3 
   if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
-  pixels.setPixelColor(0 + offset, pixels.Color(r, g, b));
+    setPC(0 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(0 + offset, pixels.Color(0, 0, 0));
+    setPC(0 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
-  pixels.setPixelColor(1 + offset, pixels.Color(r, g, b));
+    setPC(1 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(1 + offset, pixels.Color(0, 0, 0));
+    setPC(1 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
-  pixels.setPixelColor(2 + offset, pixels.Color(r, g, b));
+    setPC(2 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(2 + offset, pixels.Color(0, 0, 0));
+    setPC(2 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
-  pixels.setPixelColor(3 + offset, pixels.Color(r, g, b));
+    setPC(3 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(3 + offset, pixels.Color(0, 0, 0));
+    setPC(3 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
-  pixels.setPixelColor(4 + offset, pixels.Color(r, g, b));
+    setPC(4 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(4 + offset, pixels.Color(0, 0, 0));
+    setPC(4 + offset, 0, 0, 0);
   }
   if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
-  pixels.setPixelColor(5 + offset, pixels.Color(r, g, b));
+    setPC(5 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(5 + offset, pixels.Color(0, 0, 0));
+    setPC(5 + offset, 0, 0, 0);
   }
   if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
-  pixels.setPixelColor(6 + offset, pixels.Color(r, g, b));
+    setPC(6 + offset, r, g, b);
   } else {
-  pixels.setPixelColor(6 + offset, pixels.Color(0, 0, 0));
+    setPC(6 + offset, 0, 0, 0);
   }
 #endif
   pixels.show();
 }
 
+void setPC(int i, int r, int g, int b) {
+  pixels.setPixelColor(i, pixels.Color(r, g, b));
+}
 
 #ifdef STARTUP_ANIMATION
 void startupAnimation() {
@@ -367,7 +496,7 @@ void Off() {
 }
 
 void SetBrightness(int br) {
-  DEBUG_PRINTF("Setting brightness to %d%\n", br);
+  //DEBUG_PRINTF("Setting brightness to %d%\n", br);
   pixels.setBrightness(br);
   //Brightness = br;
   pixels.show();

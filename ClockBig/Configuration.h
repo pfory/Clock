@@ -15,13 +15,19 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     VERSION                       "1.51"
+#define     VERSION                       "1.6"
 
 #define ota
 #define cas
 #define timers
 #define verbose
 #define wifidebug
+//#define serverHTTP
+
+#ifdef serverHTTP
+#include <PageBuilder.h>
+#include <ESP8266WebServer.h>
+#endif
 
 //#define CLOCK1 //v loznici
 #define CLOCK2 //v koupelne
@@ -32,6 +38,12 @@
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "ClockBig2"
+#define     PIN                           D5
+//#define     SHT40
+#define     LIGHTSENSOR
+#endif
+#ifdef CLOCK3
+#define     SW_NAME                       "ClockBig3"
 #define     PIN                           D5
 //#define     SHT40
 #define     LIGHTSENSOR
@@ -52,6 +64,9 @@ static const char* const      mqtt_base                      = "/home/ClockBig";
 #ifdef CLOCK2
 static const char* const      mqtt_base                      = "/home/ClockBig2";
 #endif
+#ifdef CLOCK3
+static const char* const      mqtt_base                      = "/home/ClockBig3";
+#endif
 static const char* const      mqtt_base_weather              = "/home/Meteo";
 static const char* const      mqtt_topic_temperature         = "Temperature";
 static const char* const      mqtt_topic_pressure            = "Press";
@@ -70,7 +85,7 @@ static const char* const      mqtt_config_portal_stop        = "disconfig";
 #define MEAS_TIME                            750    //in ms
 #endif
 #ifdef LIGHTSENSOR
-#define SHOW_DISPLAY                         250   //refresh displeje
+#define SHOW_DISPLAY                         500   //refresh displeje
 #endif
 
 /* ----------------------------------------------LED STRIP CONFIG---------------------------------------------- */
