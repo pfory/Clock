@@ -415,40 +415,44 @@ void DrawDigit(int offset, int r, int g, int b, int n) {
   }
 #endif
 #if defined CLOCK2 || defined CLOCK3 
-  if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
-    setPC(0 + offset, r, g, b);
-  } else {
+  if (n == 0 && offset == Digit1) {
     setPC(0 + offset, 0, 0, 0);
-  }
-  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
-    setPC(1 + offset, r, g, b);
   } else {
-    setPC(1 + offset, 0, 0, 0);
-  }
-  if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
-    setPC(2 + offset, r, g, b);
-  } else {
-    setPC(2 + offset, 0, 0, 0);
-  }
-  if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
-    setPC(3 + offset, r, g, b);
-  } else {
-    setPC(3 + offset, 0, 0, 0);
-  }
-  if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
-    setPC(4 + offset, r, g, b);
-  } else {
-    setPC(4 + offset, 0, 0, 0);
-  }
-  if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
-    setPC(5 + offset, r, g, b);
-  } else {
-    setPC(5 + offset, 0, 0, 0);
-  }
-  if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
-    setPC(6 + offset, r, g, b);
-  } else {
-    setPC(6 + offset, 0, 0, 0);
+    if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
+      setPC(0 + offset, r, g, b);
+    } else {
+      setPC(0 + offset, 0, 0, 0);
+    }
+    if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //TOP
+      setPC(1 + offset, r, g, b);
+    } else {
+      setPC(1 + offset, 0, 0, 0);
+    }
+    if (n == 0 || n == 1 || n == 2 || n == 3 || n == 4 || n == 7 || n == 8 || n == 9) { //TOP RIGHT
+      setPC(2 + offset, r, g, b);
+    } else {
+      setPC(2 + offset, 0, 0, 0);
+    }
+    if (n == 0 || n == 1 || n == 3 || n == 4 || n == 5 || n == 6 || n == 7 || n == 8 || n == 9) { //BOTTOM RIGHT
+      setPC(3 + offset, r, g, b);
+    } else {
+      setPC(3 + offset, 0, 0, 0);
+    }
+    if (n == 0 || n == 2 || n == 3 || n == 5 || n == 6 || n == 8 || n == 9) { //BOTTOM
+      setPC(4 + offset, r, g, b);
+    } else {
+      setPC(4 + offset, 0, 0, 0);
+    }
+    if (n == 0 || n == 2 || n == 6 || n == 8) { //BOTTOM LEFT
+      setPC(5 + offset, r, g, b);
+    } else {
+      setPC(5 + offset, 0, 0, 0);
+    }
+    if (n == 2 || n == 3 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //MIDDLE
+      setPC(6 + offset, r, g, b);
+    } else {
+      setPC(6 + offset, 0, 0, 0);
+    }
   }
 #endif
   pixels.show();
