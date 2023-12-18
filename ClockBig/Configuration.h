@@ -29,12 +29,12 @@
 #include <ESP8266WebServer.h>
 #endif
 
-//#define CLOCK1 //v loznici
-#define CLOCK2 //v koupelne
+#define CLOCK1 //v loznici
+//#define CLOCK2 //v koupelne
 
 #ifdef CLOCK1
 #define     SW_NAME                       "ClockBig"
-#define     PIN                           D5 // Pin of the led strip, default 2 (that is D4 on the wemos)
+#define     PIN                           D1 // Pin of the led strip, default 2 (that is D4 on the wemos)
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "ClockBig2"
