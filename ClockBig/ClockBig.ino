@@ -416,7 +416,9 @@ void DrawDigit(int offset, int r, int g, int b, int n) {
 #endif
 #if defined CLOCK2 || defined CLOCK3 
   if (n == 0 && offset == Digit1) {
-    setPC(0 + offset, 0, 0, 0);
+    for (int i = 0; i<8; i++) {
+      setPC(i + offset, 0, 0, 0);
+    }
   } else {
     if (n == 0 || n == 4 || n == 5 || n == 6 || n == 8 || n == 9) { //TOP LEFT
       setPC(0 + offset, r, g, b);
@@ -699,6 +701,7 @@ int Weather(int type) {
   }
  
   pixels.show();
+
   return 1;
 }
 
