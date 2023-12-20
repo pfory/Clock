@@ -15,7 +15,7 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     VERSION                       "1.61"
+#define     VERSION                       "1.62"
 
 #define ota
 #define cas
