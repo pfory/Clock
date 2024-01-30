@@ -8,7 +8,7 @@
 #include <TM1637Display.h>
 
 //SW name & version
-#define     VERSION                       "2.34"
+#define     VERSION                       "2.42"
 
 #define ota
 #define cas

@@ -15,8 +15,23 @@ const uint8_t SEG_CONF[] = {
 };
 
 const uint8_t SEG_DEG[] = {
-	SEG_A | SEG_B | SEG_F | SEG_G           // 
+	SEG_A | SEG_B | SEG_F | SEG_G                    //degree 
 };
+
+const uint8_t SEG_MINUS[] = {
+	SEG_G,                                            //-
+	SEG_G,                                            //-
+	SEG_G,                                            //-
+	SEG_G                                             //-
+};
+
+
+/////////////////////
+//  A
+//F   B
+//  G 
+//E   C
+//  D
 
 const uint8_t SEG_NONE[] = {
   0,
@@ -43,12 +58,11 @@ ADC_MODE(ADC_VCC);
 
 //MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
-  char * pEnd;
   String val =  String();
   DEBUG_PRINT("\nMessage arrived [");
   DEBUG_PRINT(topic);
   DEBUG_PRINT("] ");
-  for (int i=0;i<length;i++) {
+  for (unsigned int i=0;i<length;i++) {
     DEBUG_PRINT((char)payload[i]);
     val += (char)payload[i];
   }
@@ -93,7 +107,7 @@ void setup() {
 
   ticker.detach();
   //keep LED on
-  digitalWrite(BUILTIN_LED, HIGH);
+  digitalWrite(LED_BUILTIN, HIGH);
 
   tm1637.setBrightness(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
   tm1637.showNumberDecEx(8888, 0b11100000, true, 4, 0);
@@ -106,7 +120,7 @@ void setup() {
   }
 
   tm1637.setSegments(SEG_DONE);
-
+  
 #ifdef TEMPERATURE_PROBE
   Wire.begin();
   DEBUG_PRINT("Temperature probe DS18B20: ");
@@ -130,7 +144,7 @@ void setup() {
 #ifdef TEMPERATURE_PROBE
   timer.every(SENDSTAT_DELAY, sendTemperatureMQTT);
 #endif
-  void * a;
+  void * a=0;
   reconnect(a);
   sendNetInfoMQTT();
   sendStatisticMQTT(a);
@@ -156,18 +170,23 @@ void loop()
 
 bool TimingISR(void *) {
   //printSystemTime();
-  int t = hour() * 100 + minute();
-
-  if (zhasnuto) {
-    tm1637.setSegments(SEG_NONE);
+  //if (false) {
+  if (timeStatus() == timeNotSet) {
+    tm1637.setSegments(SEG_MINUS);
   } else {
-    if(ClockPoint) {
-      tm1637.showNumberDecEx(t, 0, true, 4, 0);
+    int t = hour() * 100 + minute();
+
+    if (zhasnuto) {
+      tm1637.setSegments(SEG_NONE);
     } else {
-      tm1637.showNumberDecEx(t, 0b01000000, true, 4, 0);
+      if(ClockPoint) {
+        tm1637.showNumberDecEx(t, 0, t<60?true:false, 4, 0);
+      } else {
+        tm1637.showNumberDecEx(t, 0b01000000, t<60?true:false, 4, 0);
+      }
     }
+    ClockPoint = (~ClockPoint) & 0x01;
   }
-  ClockPoint = (~ClockPoint) & 0x01;
   return true;
 }
 
@@ -208,7 +227,7 @@ bool showTemperature(void *) {
 
 #ifdef TEMPERATURE_PROBE
 bool meass(void *) {
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
   
   if (DS18B20Present) {
     dsSensors.requestTemperatures(); // Send the command to get temperatures
@@ -224,7 +243,7 @@ bool meass(void *) {
     temperatureDS = 0.0; //dummy
   }
   
-  digitalWrite(BUILTIN_LED, HIGH);
+  digitalWrite(LED_BUILTIN, HIGH);
 
   return true;
 }
@@ -232,7 +251,7 @@ bool meass(void *) {
 
 #ifdef TEMPERATURE_PROBE
 bool sendTemperatureMQTT(void *) {
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
   DEBUG_PRINTLN(F("Temperature"));
 
   if (!client.connected()) {
@@ -240,7 +259,7 @@ bool sendTemperatureMQTT(void *) {
   } else {
     client.publish((String(mqtt_base) + "/Temperature").c_str(), String(temperatureDS).c_str());
   }
-  digitalWrite(BUILTIN_LED, HIGH);
+  digitalWrite(LED_BUILTIN, HIGH);
   return true;
 }
 #endif
