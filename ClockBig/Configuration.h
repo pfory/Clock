@@ -15,7 +15,7 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     VERSION                       "1.62"
+#define     VERSION                       "1.63"
 
 #define ota
 #define cas
@@ -29,8 +29,8 @@
 #include <ESP8266WebServer.h>
 #endif
 
-#define CLOCK1 //v loznici
-//#define CLOCK2 //v koupelne
+//#define CLOCK1 //v loznici
+#define CLOCK2 //v koupelne
 
 #ifdef CLOCK1
 #define     SW_NAME                       "ClockBig"
