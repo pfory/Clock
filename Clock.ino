@@ -139,7 +139,7 @@ void setup() {
 
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
-  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
   timer.every(SHOWTEMP_DELAY, showTemperature);
 #ifdef TEMPERATURE_PROBE
   timer.every(SENDSTAT_DELAY, sendTemperatureMQTT);
