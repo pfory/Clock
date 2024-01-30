@@ -206,7 +206,7 @@ void setup() {
 
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
-  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
   client.publish((String(mqtt_base) + "/mqtt_topic_request").c_str(), "setup");
   
