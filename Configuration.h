@@ -24,21 +24,22 @@
 
 #ifdef CLOCK1
 #define     SW_NAME                       "Clock1"
-#define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     CLK D2
 #define     DIO D3
 #define     TEMPERATURE_PROBE
 #define     ONE_WIRE_BUS  D7
 #endif
 #ifdef CLOCK2
 #define     SW_NAME                       "Clock2"
-#define     CLK D2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     CLK D2
 #define     DIO D3
 #define     TEMPERATURE_PROBE
 #define     ONE_WIRE_BUS  D7
 #endif
 #ifdef CLOCK3
+//u CLOCK nastavit LED_BUILTIN na neco jineho nez 2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #define     SW_NAME                       "Clock3"
-#define     CLK 2//pins//pins definitions for TM1637 and can be changed to other ports
+#define     CLK 2
 #define     DIO 0
 #endif
 

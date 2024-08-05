@@ -109,7 +109,7 @@ void setup() {
   //keep LED on
   digitalWrite(LED_BUILTIN, HIGH);
 
-  tm1637.setBrightness(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+  tm1637.setBrightness(0x0f);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
   tm1637.showNumberDecEx(8888, 0b11100000, true, 4, 0);
 
   //show ip on display
