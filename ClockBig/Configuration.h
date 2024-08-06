@@ -1,21 +1,19 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
+// #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
+// #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 //#include <timer.h>
-#include <arduino-timer.h>
-#include <Ticker.h>
-#include <DoubleResetDetector.h>      //https://github.com/khoih-prog/ESP_DoubleResetDetector
+// #include <arduino-timer.h>
+// #include <Ticker.h>
 //#include "Sender.h"
-#include <PubSubClient.h>
-#include <TimeLib.h>
-#include <Timezone.h>
+// #include <TimeLib.h>
+// #include <Timezone.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 //SW name & version
-#define     VERSION                       "1.63"
+#define     VERSION                       "1.64"
 
 #define ota
 #define cas
@@ -60,17 +58,20 @@ static const char* const      mqtt_username                  = "datel";
 static const char* const      mqtt_key                       = "hanka12";
 #ifdef CLOCK1
 static const char* const      mqtt_base                      = "/home/ClockBig";
-#endif
-#ifdef CLOCK2
-static const char* const      mqtt_base                      = "/home/ClockBig2";
-#endif
-#ifdef CLOCK3
-static const char* const      mqtt_base                      = "/home/ClockBig3";
-#endif
 static const char* const      mqtt_base_weather              = "/home/Meteo";
 static const char* const      mqtt_topic_temperature         = "Temperature";
 static const char* const      mqtt_topic_pressure            = "Press";
 static const char* const      mqtt_topic_humidity            = "Humidity";
+#endif
+#ifdef CLOCK2
+static const char* const      mqtt_base                      = "/home/ClockBig2";
+static const char* const      mqtt_base_humidity             = "/home/zigbee2mqtt/teplotaVlhkost1";
+static const char* const      mqtt_topic_humidity2           = "humidity";
+static const char* const      mqtt_topic_temperature2        = "temperature";
+#endif
+#ifdef CLOCK3
+static const char* const      mqtt_base                      = "/home/ClockBig3";
+#endif
 static const char* const      mqtt_topic_restart             = "restart";
 static const char* const      mqtt_topic_request             = "request";
 static const char* const      mqtt_topic_netinfo             = "netinfo";

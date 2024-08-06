@@ -1,8 +1,10 @@
 #include "Configuration.h"
 
 float         temperature                   = -55;
+float         temperature2                   = -55;
 float         pressure                      = 0;
 float         humidity                      = 0;
+float         humidity2                     = 0;
 unsigned char ClockPoint                    = 1;
 #ifdef TEMPERATURE_PROBE
 float         temperatureDS                 = 0.f;
@@ -120,7 +122,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     val += (char)payload[i];
   }
   DEBUG_PRINTLN();
- 
+
+#ifdef CLOCK1 
   if (strcmp(topic, (String(mqtt_base_weather) + "/" + String(mqtt_topic_temperature)).c_str())==0) {
     DEBUG_PRINT("Temperature from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
@@ -133,6 +136,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
     DEBUG_PRINT("Humidity from Meteo: ");
     DEBUG_PRINTLN(val.toFloat());
     humidity = val.toFloat();
+#endif
+#ifdef CLOCK2    
+  if (strcmp(topic, (String(mqtt_base_humidity) + "/" + String(mqtt_topic_humidity2)).c_str())==0) {
+    DEBUG_PRINT("Humidity from zigbee sensor: ");
+    DEBUG_PRINTLN(val.toFloat());
+    humidity2 = val.toFloat();
+  } else if (strcmp(topic, (String(mqtt_base_humidity) + "/" + String(mqtt_topic_temperature2)).c_str())==0) {
+    DEBUG_PRINT("Humidity from zigbee sensor: ");
+    DEBUG_PRINTLN(val.toFloat());
+    temperature2 = val.toFloat();
+#endif
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
     Off();
     DEBUG_PRINT("RESTART");
@@ -206,16 +220,12 @@ void setup() {
 
   timer.every(CONNECT_DELAY, reconnect);
   timer.every(500, TimingISR);
-  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
 
   client.publish((String(mqtt_base) + "/mqtt_topic_request").c_str(), "setup");
   
   void * a=0;
   reconnect(a);
-  sendNetInfoMQTT();
-  sendStatisticMQTT(a);
-   
-  DEBUG_PRINTLN(F("SETUP END."));
+  postSetup();
 }
 
 
@@ -226,7 +236,7 @@ void loop() {
 #endif
   client.loop();
   wifiManager.process();  
-  drd.loop();
+  drd->loop();
 #ifdef serverHTTP
   Server.handleClient();
 #endif
@@ -273,13 +283,13 @@ bool TimingISR(void *) {
   change_brightness();
 #endif
   if (type=='0') {
+#ifdef CLOCK1    
   } else if ((second()%10)<1) {
     changeColorDigitToRandom(0);
     type = 'w';
     if (Weather(0)==0) { //jeste neni teplota nactena z meteo
       type='c';
     }
-#ifdef CLOCK1    
   } else if ((second()%10)<2) {
     //changeColorDigitToRandom(0);
     type = 'w';
@@ -290,6 +300,18 @@ bool TimingISR(void *) {
     //changeColorDigitToRandom(0);
     type = 'w';
     if (Weather(2)==0) { //jeste neni tlak nacteny z meteo
+      type='c';
+    }
+#endif
+#ifdef CLOCK2    
+  } else if ((second()%10)<1) {
+    type = 'w';
+    if (Hum(0)==0) { //jeste neni teplota nactena z zigbee sensoru
+      type='c';
+    }
+  } else if ((second()%10)<2) {
+    type = 'w';
+    if (Hum(1)==0) { //jeste neni vlhkost nactena z zigbee sensoru
       type='c';
     }
 #endif
@@ -599,26 +621,13 @@ int Weather(int type) {
     pixels.setPixelColor(poziceStupen + 0, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(poziceStupen + 1, pixels.Color(wr, wg, wb));
     pixels.setPixelColor(poziceStupen + 2, pixels.Color(wr, wg, wb));
-#ifdef CLOCK1
     pixels.setPixelColor(poziceStupen + 3, pixels.Color(wr, wg, wb));
-#endif    
-#ifdef CLOCK2
-    pixels.setPixelColor(poziceStupen + 6, pixels.Color(wr, wg, wb));
-#endif    
     //znak C
     if (temp>-10) {
-#ifdef CLOCK1      
       pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
       pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
-#endif
-#ifdef CLOCK2
-      pixels.setPixelColor(Digit4 + 0, pixels.Color(wr, wg, wb));
-      pixels.setPixelColor(Digit4 + 1, pixels.Color(wr, wg, wb));
-      pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
-      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
-#endif
     }
 
     int t1, t2;
@@ -632,21 +641,11 @@ int Weather(int type) {
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t2);
     } else if (temp < 0 && temp > -10) {
-#ifdef CLOCK1      
       pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
-#endif
-#ifdef CLOCK2
-      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
-#endif
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t2);
     } else {
-#ifdef CLOCK1      
       pixels.setPixelColor(Digit1 + 0, pixels.Color(wr, wg, wb)); //-
-#endif
-#ifdef CLOCK2
-      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
-#endif
       t1 = abs(temp) / 10;
       t2 = abs(temp) % 10;
       DrawDigit(Digit2, wr, wg, wb, t1);
@@ -706,6 +705,99 @@ int Weather(int type) {
     DrawDigit(Digit4, wr, wg, wb, p4);
   }
  
+  pixels.show();
+
+  return 1;
+}
+
+int Hum(int type) {
+  if (type==0) { //temperature
+    int temp  = (int)round(temperature2);
+    
+    if (temp==-55) {
+      DEBUG_PRINTLN("No temperature from zigbee sensor yet");
+      return 0;
+    }
+
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
+
+    GetWeatherColor(temp);
+
+    int poziceStupen;
+    // °
+    if (temp>-10) {
+      poziceStupen = Digit3;
+    } else {
+      poziceStupen = Digit4;
+    }
+    //znak stupen
+    pixels.setPixelColor(poziceStupen + 0, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 1, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 2, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(poziceStupen + 6, pixels.Color(wr, wg, wb));
+    //znak C
+    if (temp>-10) {
+      pixels.setPixelColor(Digit4 + 0, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 1, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 4, pixels.Color(wr, wg, wb));
+      pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
+    }
+
+    int t1, t2;
+
+    if (temp >=10) {
+      t1 = abs(temp) / 10;
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit1, wr, wg, wb, t1);
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else if (temp < 10 && temp >= 0) {
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else if (temp < 0 && temp > -10) {
+      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t2);
+    } else {
+      pixels.setPixelColor(Digit1 + 6, pixels.Color(wr, wg, wb)); //-
+      t1 = abs(temp) / 10;
+      t2 = abs(temp) % 10;
+      DrawDigit(Digit2, wr, wg, wb, t1);
+      DrawDigit(Digit3, wr, wg, wb, t2);
+    }
+
+    //dots off
+    pixels.setPixelColor(Digit3 - 2, pixels.Color(0, 0, 0));
+    pixels.setPixelColor(Digit3 - 1, pixels.Color(0, 0, 0));
+  } else if (type==1) { //humidity
+    int hum   = (int)round(humidity2);
+    if (hum==0) {
+      DEBUG_PRINTLN("No humidity from zigbee sensor yet");
+      return 0;
+    }
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
+
+    //rH
+    pixels.setPixelColor(Digit3 + 5, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit3 + 6, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 0, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 2, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 3, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 5, pixels.Color(wr, wg, wb));
+    pixels.setPixelColor(Digit4 + 6, pixels.Color(wr, wg, wb));
+    int h1, h2;
+    h1 = abs(hum) / 10;
+    h2 = abs(hum) % 10;
+    if (hum==100) {
+      DrawDigit(Digit1, wr, wg, wb, 0);
+    } else {
+      DrawDigit(Digit1, wr, wg, wb, h1);
+    }
+    DrawDigit(Digit2, wr, wg, wb, h2);
+  }
   pixels.show();
 
   return 1;
@@ -806,9 +898,15 @@ bool reconnect(void *) {
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal_stop)).c_str());
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_config_portal)).c_str());
       client.subscribe((String(mqtt_base) + "/" + String(mqtt_topic_load)).c_str());
+#ifdef CLOCK1      
       client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_temperature)).c_str());
       client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_pressure)).c_str());
       client.subscribe((String(mqtt_base_weather) + "/" + String(mqtt_topic_humidity)).c_str());
+#endif
+#ifdef CLOCK2
+      client.subscribe((String(mqtt_base_humidity) + "/" + String(mqtt_topic_temperature2)).c_str());
+      client.subscribe((String(mqtt_base_humidity) + "/" + String(mqtt_topic_humidity2)).c_str());
+#endif
       client.publish((String(mqtt_base) + "/LWT").c_str(), "online", true);
       DEBUG_PRINTLN("connected");
     } else {
