@@ -151,7 +151,7 @@ void setup() {
     
   DEBUG_PRINTLN(" Ready");
  
-  drd.stop();
+  drd->stop();
 
   DEBUG_PRINTLN(F("SETUP END......................."));
 }
@@ -165,7 +165,7 @@ void loop()
 #endif
   client.loop();
   wifiManager.process();
-  drd.loop();
+  drd->loop();
 }
 
 bool TimingISR(void *) {
